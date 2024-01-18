@@ -3,6 +3,7 @@ import {Tile} from '../source/tile';
 import {Color} from '@maplibre/maplibre-gl-style-spec';
 import {OverscaledTileID} from '../source/tile_id';
 import {drawTerrain} from './draw_terrain';
+import {drawGlobe} from './draw_globe';
 import {Style} from '../style/style';
 import {Terrain} from './terrain';
 import {RenderPool} from '../gl/render_pool';
@@ -153,7 +154,11 @@ export class RenderToTexture {
             for (const tile of this._renderableTiles) {
                 // if render pool is full draw current tiles to screen and free pool
                 if (this.pool.isFull()) {
-                    drawTerrain(this.painter, this.terrain, this._rttTiles);
+                    if (this.painter.transform.projection.isGlobe(this.painter.transform.zoom)) {
+                        drawGlobe(this.painter, this.terrain, this._rttTiles);
+                    } else {
+                        drawTerrain(this.painter, this.terrain, this._rttTiles);
+                    }
                     this._rttTiles = [];
                     this.pool.freeAllObjects();
                 }
@@ -184,7 +189,11 @@ export class RenderToTexture {
                     if (layer.source) tile.rttCoords[layer.source] = this._coordsDescendingInvStr[layer.source][tile.tileID.key];
                 }
             }
-            drawTerrain(this.painter, this.terrain, this._rttTiles);
+            if (this.painter.transform.projection.isGlobe(this.painter.transform.zoom)) {
+                drawGlobe(this.painter, this.terrain, this._rttTiles);
+            } else {
+                drawTerrain(this.painter, this.terrain, this._rttTiles);
+            }
             this._rttTiles = [];
             this.pool.freeAllObjects();
 

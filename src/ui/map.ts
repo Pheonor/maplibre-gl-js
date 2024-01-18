@@ -58,6 +58,7 @@ import type {
 import type {MapGeoJSONFeature} from '../util/vectortile_to_geojson';
 import type {ControlPosition, IControl} from './control/control';
 import type {QueryRenderedFeaturesOptions, QuerySourceFeatureOptions} from '../source/query_features';
+import {Projection} from '../geo/projection';
 
 const version = packageJSON.version;
 
@@ -319,6 +320,10 @@ export type MapOptions = {
      * You shouldn't set this above WebGl `MAX_TEXTURE_SIZE`. Defaults to [4096, 4096].
      */
     maxCanvasSize?: [number, number];
+    /**
+     * The map projection. Use 'mercator' for 2D mode, 'globe' for 3D globe view.
+     */
+    projection?: string;
 };
 
 export type AddImageOptions = {
@@ -388,7 +393,8 @@ const defaultOptions = {
     crossSourceCollisions: true,
     validateStyle: true,
     /**Because GL MAX_TEXTURE_SIZE is usually at least 4096px. */
-    maxCanvasSize: [4096, 4096]
+    maxCanvasSize: [4096, 4096],
+    projection: 'mercator'
 } as CompleteMapOptions;
 
 /**
@@ -557,7 +563,7 @@ export class Map extends Camera {
             throw new Error(`maxPitch must be less than or equal to ${maxPitchThreshold}`);
         }
 
-        const transform = new Transform(options.minZoom, options.maxZoom, options.minPitch, options.maxPitch, options.renderWorldCopies);
+        const transform = new Transform(options.minZoom, options.maxZoom, options.minPitch, options.maxPitch, options.renderWorldCopies, options.projection);
         super(transform, {bearingSnap: options.bearingSnap});
 
         this._interactive = options.interactive;
@@ -599,6 +605,10 @@ export class Map extends Camera {
 
         if (options.maxBounds) {
             this.setMaxBounds(options.maxBounds);
+        }
+
+        if (options.projection) {
+            this.setProjection(options.projection);
         }
 
         this._setupContainer();
@@ -1128,6 +1138,59 @@ export class Map extends Camera {
      */
     setRenderWorldCopies(renderWorldCopies?: boolean | null): Map {
         this.transform.renderWorldCopies = renderWorldCopies;
+        return this._update();
+    }
+
+    /**
+     * Returns the active `projection`.
+     * @returns The projection
+     * @example
+     * ```ts
+     * let projection = map.getProjection();
+     * ```
+     */
+    getProjection(): Projection { return this.transform.projection; }
+
+    /**
+     * Returns the active `projection` name.
+     * @returns The projection name
+     * @example
+     * ```ts
+     * let projectionName = map.getProjectionName();
+     * ```
+     */
+    getProjectionName(): string { return this.transform.projection.name; }
+
+    /**
+     * Sets the active `projection`.
+     *
+     * @param projectionName - the new projection name.
+     *
+     * Triggers the `projection` event.
+     *
+     * @returns `this`
+     * @example
+     * ```ts
+     * map.setProjection('mercator');
+     * ```
+     */
+    setProjection(projectionName: string): Map {
+        this.transform.projection = projectionName;
+
+        if (!this.transform.projection.isGlobe(this.transform.zoom)) {
+            // remove globe
+            if (this.terrain) this.terrain.sourceCache.destruct();
+            this.terrain = null;
+            if (this.painter.renderToTexture) this.painter.renderToTexture.destruct();
+            this.painter.renderToTexture = null;
+        } else {
+            // add globe
+            // use render-to-texture without terrain source
+            this.terrain = new Terrain(this.painter);
+            this.painter.renderToTexture = new RenderToTexture(this.painter, this.terrain);
+        }
+
+        this.fire(new Event('projection', {projection: projectionName}));
         return this._update();
     }
 
@@ -3322,3 +3385,4 @@ export class Map extends Camera {
         return this.transform.elevation;
     }
 }
+

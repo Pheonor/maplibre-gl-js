@@ -412,7 +412,8 @@ export class Painter {
         this.context.bindFramebuffer.set(null);
 
         // Clear buffers in preparation for drawing to the main framebuffer
-        this.context.clear({color: options.showOverdrawInspector ? Color.black : Color.transparent, depth: 1});
+        const clearColor = this.transform.projection.isGlobe(this.transform.zoom) ? Color.black : Color.transparent;
+        this.context.clear({color: options.showOverdrawInspector ? Color.black : clearColor, depth: 1});
         this.clearStencil();
 
         this._showOverdrawInspector = options.showOverdrawInspector;
@@ -447,6 +448,8 @@ export class Painter {
             // for cross-tile symbol fading. Symbol layers don't use tile clipping, so no need to render
             // separate clipping masks
             const coords = (layer.type === 'symbol' ? coordsDescendingSymbol : coordsDescending)[layer.source];
+
+            if (this.transform.projection.isGlobe(this.transform.zoom) && this.transform.zoom < 9 && layer.type === 'symbol') continue;
 
             this._renderTileClippingMasks(layer, coordsAscending[layer.source]);
             this.renderLayer(this, sourceCache, layer, coords);

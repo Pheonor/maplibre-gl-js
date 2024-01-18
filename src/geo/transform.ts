@@ -12,6 +12,17 @@ import {EdgeInsets} from './edge_insets';
 import {UnwrappedTileID, OverscaledTileID, CanonicalTileID} from '../source/tile_id';
 import type {PaddingOptions} from './edge_insets';
 import {Terrain} from '../render/terrain';
+import {Projection} from './projection';
+import {Mercator} from './projection/mercator';
+import {Globe} from './projection/globe';
+
+function getProjectionFromName(projectionName: string): Projection {
+    switch (projectionName) {
+        case 'mercator': return new Mercator();
+        case 'globe': return new Globe();
+        default: return new Mercator();
+    }
+}
 
 /**
  * @internal
@@ -57,8 +68,9 @@ export class Transform {
     _constraining: boolean;
     _posMatrixCache: {[_: string]: mat4};
     _alignedPosMatrixCache: {[_: string]: mat4};
+    _projection: Projection;
 
-    constructor(minZoom?: number, maxZoom?: number, minPitch?: number, maxPitch?: number, renderWorldCopies?: boolean) {
+    constructor(minZoom?: number, maxZoom?: number, minPitch?: number, maxPitch?: number, renderWorldCopies?: boolean, projection?: string) {
         this.tileSize = 512; // constant
         this.maxValidLatitude = 85.051129; // constant
 
@@ -84,6 +96,8 @@ export class Transform {
         this._posMatrixCache = {};
         this._alignedPosMatrixCache = {};
         this.minElevationForCurrentTile = 0;
+
+        this._projection = projection === undefined ? new Mercator() : getProjectionFromName(projection);
     }
 
     clone(): Transform {
@@ -233,6 +247,12 @@ export class Transform {
         //Update edge-insets inplace
         this._edgeInsets.interpolate(this._edgeInsets, padding, 1);
         this._calcMatrices();
+    }
+
+    get projection(): Projection { return this._projection; }
+    set projection(projectionName: string) {
+        if (this._projection.name === projectionName) return;
+        this._projection = getProjectionFromName(projectionName);
     }
 
     /**
@@ -979,4 +999,27 @@ export class Transform {
         vec4.transformMat4(p, p, this.projMatrix);
         return (p[2] / p[3]);
     }
+
+    getGlobeMatrix(): mat4 {
+        // Improvement: Use a cache to avoid computing it each time
+
+        // Scale from globe to world (could be simplified, but for clarity, we kept the 2.PI parts)
+        const globeRadius = EXTENT / (2.0 * Math.PI);
+        const worldSizeRadius = this.worldSize / (2.0 * Math.PI);
+        const scale = worldSizeRadius / globeRadius;
+
+        // Offset due to projection
+        const projectedCenter = this.project(this.center);
+        const offset = vec3.fromValues(projectedCenter.x, projectedCenter.y, -worldSizeRadius);
+
+        // Matrix with projection offset, globe to world scale, rotation for lat, rotation for lng
+        const globeMatrix = mat4.identity(new Float64Array(16) as any);
+        mat4.translate(globeMatrix, globeMatrix, offset);
+        mat4.scale(globeMatrix, globeMatrix, [scale, scale, scale]);
+        mat4.rotateX(globeMatrix, globeMatrix, -this.center.lat * Math.PI / 180.0);
+        mat4.rotateY(globeMatrix, globeMatrix, -this.center.lng * Math.PI / 180.0);
+
+        return globeMatrix;
+    }
+
 }
