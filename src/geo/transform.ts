@@ -454,7 +454,7 @@ export class Transform {
         const maxZoom = z;
         const overscaledZ = options.reparseOverscaled ? actualZ : z;
 
-        if (this._renderWorldCopies) {
+        if (!this.projection.isGlobe(this.zoom) && this._renderWorldCopies) {
             // Render copy of the globe thrice on both sides
             for (let i = 1; i <= 3; i++) {
                 stack.push(newRootTile(-i));
@@ -922,7 +922,12 @@ export class Transform {
         // Calculate z distance of the farthest fragment that should be rendered.
         // Add a bit extra to avoid precision problems when a fragment's distance is exactly `furthestDistance`
         const topHalfMinDistance = Math.min(topHalfSurfaceDistance, topHalfSurfaceDistanceHorizon);
-        const farZ = (Math.cos(Math.PI / 2 - this._pitch) * topHalfMinDistance + lowestPlane) * 1.01;
+        let farZ = (Math.cos(Math.PI / 2 - this._pitch) * topHalfMinDistance + lowestPlane) * 1.01;
+
+        if (this.projection.isGlobe(this.zoom)) {
+            // farZ should be evaluated differently in Globe mode... for the moment, use a multiple of the earth Radius
+            farZ = 15 * this.worldSize / 2.0 / Math.PI;
+        }
 
         // The larger the value of nearZ is
         // - the more depth precision is available for features (good)
@@ -952,8 +957,10 @@ export class Transform {
         this.mercatorMatrix = mat4.scale([] as any, m, [this.worldSize, this.worldSize, this.worldSize]);
 
         // scale vertically to meters per pixel (inverse of ground resolution):
-        mat4.scale(m, m, [1, 1, this._pixelPerMeter]);
-
+        // (in globe mode, all coords use the same scale)
+        if (!this.projection.isGlobe(this.zoom)) {
+            mat4.scale(m, m, [1, 1, this._pixelPerMeter]);
+        }
         // matrix for conversion from world space to screen coordinates in 2D
         this.pixelMatrix = mat4.multiply(new Float64Array(16) as any, this.labelPlaneMatrix, m);
 
