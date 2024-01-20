@@ -1,6 +1,6 @@
 import {LngLat} from './lng_lat';
 import {LngLatBounds} from './lng_lat_bounds';
-import {MercatorCoordinate, mercatorXfromLng, mercatorYfromLat, mercatorZfromAltitude} from './mercator_coordinate';
+import {MercatorCoordinate, latFromMercatorY, lngFromMercatorX, mercatorXfromLng, mercatorYfromLat, mercatorZfromAltitude} from './mercator_coordinate';
 import Point from '@mapbox/point-geometry';
 import {wrap, clamp} from '../util/util';
 import {interpolates} from '@maplibre/maplibre-gl-style-spec';
@@ -336,6 +336,68 @@ export class Transform {
         return result;
     }
 
+    latLngToGlobe(latLng: LngLat): vec4 {
+        // As a Tile could cover the whole Earth, EXTENT is the perimeter, so the radius is perimeter / (2.PI)
+        const GLOBE_RADIUS = EXTENT / 2.0 / Math.PI;
+
+        const cosLng = Math.cos(latLng.lng * Math.PI / 180.0);
+        const sinLng = Math.sin(latLng.lng * Math.PI / 180.0);
+        const cosLat = Math.cos(latLng.lat * Math.PI / 180.0);
+        const sinLat = Math.sin(latLng.lat * Math.PI / 180.0);
+
+        // Compute spherical coordinate (y up)
+        const globeX = cosLat * sinLng * GLOBE_RADIUS;
+        const globeY = -sinLat * GLOBE_RADIUS;
+        const globeZ = cosLat * cosLng * GLOBE_RADIUS;
+
+        return vec4.fromValues(globeX, globeY, globeZ, 1);
+    }
+
+    createAabbFromTile(numTiles: number, z: number, x: number, y: number, wrap: number): Aabb {
+        if (this.projection.isGlobe(this.zoom)) {
+            // Compute AABB by taking account Globe shape
+
+            // Retrieve corner in x, y, z coordinates and convert to 2D (x, y) coordinates
+            const scale = Math.pow(2, -z);
+            const x1 = x * scale;
+            const x2 = (x + 1) * scale;
+            const y1 = y * scale;
+            const y2 = (y + 1) * scale;
+
+            // Convert in (lon, lat) coordinates
+            const west = lngFromMercatorX(x1);
+            const east = lngFromMercatorX(x2);
+            const north = latFromMercatorY(y1);
+            const south = latFromMercatorY(y2);
+
+            let cornerMin = vec4.fromValues(Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE, 1);
+            let cornerMax = vec4.fromValues(-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE, 1);
+
+            // Search bounds
+            const globeMatrix = this.getGlobeMatrix();
+            const scalePoint = numTiles / this.worldSize;
+            const meshWidth = east - west;
+            const meshHeight = north - south;
+            // As the tile is not planar, sample the surface of the tile and use each point to extend the AABB
+            // As we go closer (high z), it is not necessary to take too much points
+            const nbMeshPoint = Math.max(2, Math.min(8, 10 - z));
+            for (let y = 0; y < nbMeshPoint; y++) {
+                for (let x = 0; x < nbMeshPoint; x++) {
+                    const posGlobe = this.latLngToGlobe(new LngLat(west + meshWidth * x / (nbMeshPoint - 1), south + meshHeight * y / (nbMeshPoint - 1)));
+                    const p = vec4.transformMat4(posGlobe, posGlobe, globeMatrix);
+                    vec4.scale(p, p, scalePoint);
+                    cornerMin = vec4.min(cornerMin, cornerMin, p);
+                    cornerMax = vec4.max(cornerMax, cornerMax, p);
+                }
+            }
+
+            return new Aabb([cornerMin[0], cornerMin[1], 0/*cornerMin[2]*/], [cornerMax[0], cornerMax[1], 0/*cornerMax[2]*/]);
+        }
+
+        // If not globe, return classic AABB
+        return new Aabb([wrap * numTiles, 0, 0], [(wrap + 1) * numTiles, numTiles, 0]);
+    }
+
     /**
      * Return all coordinates that could cover this transform for a covering
      * zoom level.
@@ -446,6 +508,8 @@ export class Transform {
                 const childX = (x << 1) + (i % 2);
                 const childY = (y << 1) + (i >> 1);
                 const childZ = it.zoom + 1;
+                const quadrant = this.projection.isGlobe(this.zoom) ? this.createAabbFromTile(numTiles, childZ, childX, childY, it.wrap) : it.aabb.quadrant(i);
+                /*
                 let quadrant = it.aabb.quadrant(i);
                 if (options.terrain) {
                     const tileID = new OverscaledTileID(childZ, it.wrap, childZ, childX, childY);
@@ -457,6 +521,7 @@ export class Transform {
                         [quadrant.max[0], quadrant.max[1], maxElevation] as vec3
                     );
                 }
+                */
                 stack.push({aabb: quadrant, zoom: childZ, x: childX, y: childY, wrap: it.wrap, fullyVisible});
             }
         }

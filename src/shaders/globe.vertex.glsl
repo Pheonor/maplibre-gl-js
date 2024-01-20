@@ -29,6 +29,16 @@ vec3 latLngToGlobePos(vec2 lat_lng) {
     return vec3(globe_x, globe_y, globe_z);
 }
 
+// Same function as in Typescript part (mercator_coordinate.ts)
+float mercatorXfromLng(float lng) {
+    return (180.0 + lng) / 360.0;
+}
+
+// Same function as in Typescript part (mercator_coordinate.ts)
+float mercatorYfromLat(float lat) {
+    return (180.0 - (180.0 / PI * log(tan(PI / 4.0 + lat * PI / 360.0)))) / 360.0;
+}
+
 // Base on terrain vertex shader
 void main() {
     // This shader have 2D coordinates as input.
@@ -49,6 +59,10 @@ void main() {
     float scale = u_tile_coords[0];
     float x = u_tile_coords[1];
     float y = u_tile_coords[2];
+    
+    // Compute 2D mercator position
+    float mercator_y = mercatorYfromLat(lat_lng[0]);
+    float mercator_x = mercatorXfromLng(lat_lng[1]);
     
     float uvX = mercator_x * scale - x;
     float uvY = mercator_y * scale - y;

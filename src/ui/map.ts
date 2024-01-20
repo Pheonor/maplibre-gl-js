@@ -607,10 +607,6 @@ export class Map extends Camera {
             this.setMaxBounds(options.maxBounds);
         }
 
-        if (options.projection) {
-            this.setProjection(options.projection);
-        }
-
         this._setupContainer();
         this._setupPainter();
 
@@ -666,6 +662,10 @@ export class Map extends Camera {
         this._validateStyle = options.validateStyle;
 
         if (options.style) this.setStyle(options.style, {localIdeographFontFamily: options.localIdeographFontFamily});
+
+        if (options.projection) {
+            this.setProjection(options.projection);
+        }
 
         if (options.attributionControl)
             this.addControl(new AttributionControl({customAttribution: options.customAttribution}));
@@ -1176,19 +1176,6 @@ export class Map extends Camera {
      */
     setProjection(projectionName: string): Map {
         this.transform.projection = projectionName;
-
-        if (!this.transform.projection.isGlobe(this.transform.zoom)) {
-            // remove globe
-            if (this.terrain) this.terrain.sourceCache.destruct();
-            this.terrain = null;
-            if (this.painter.renderToTexture) this.painter.renderToTexture.destruct();
-            this.painter.renderToTexture = null;
-        } else {
-            // add globe
-            // use render-to-texture without terrain source
-            this.terrain = new Terrain(this.painter);
-            this.painter.renderToTexture = new RenderToTexture(this.painter, this.terrain);
-        }
 
         this.fire(new Event('projection', {projection: projectionName}));
         return this._update();
@@ -3097,6 +3084,22 @@ export class Map extends Camera {
         if (this._removed) return;
 
         let crossFading = false;
+
+        // For Globe projection, activate a Terrain if needed
+        if (this.transform.projection.isGlobe(this.painter.transform.zoom)) {
+            if (!this.terrain) {
+                // Configure a terrain to enforce 'drapping'
+                if (!this.getSource('terrainSource')) {
+                    this.addSource('terrainSource', {
+                        type: 'raster-dem',
+                        url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
+                        tileSize: 256
+                    });
+                }
+                const terrainOptions = {source: 'terrainSource', exaggeration: 0};
+                this.setTerrain(terrainOptions);
+            }
+        }
 
         // If the style has changed, the map is being zoomed, or a transition or fade is in progress:
         //  - Apply style changes (in a batch)
