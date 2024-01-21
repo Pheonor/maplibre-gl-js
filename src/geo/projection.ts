@@ -2,6 +2,7 @@ import {LngLat} from './lng_lat';
 
 /**
  * A `ProjectedPoint` represents a projected point.
+ * It allows to store the 3D coordinates of any point.
  */
 export class ProjectedPoint {
     x: number;
@@ -10,7 +11,7 @@ export class ProjectedPoint {
 }
 
 /**
- * A `Project` abstract class to represent a projection coordinate system.
+ * A `Projection` abstract class to represent a projection coordinate system.
  * It could represent a 3D globe projection or any 2D projection.
  * It allows to project and unproject coordinate to and from the coordinate system.
  *
