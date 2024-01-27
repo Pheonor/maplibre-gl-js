@@ -139,11 +139,11 @@ export class Terrain {
      */
     _demMatrixCache: {[_: string]: { matrix: mat4; coord: OverscaledTileID }};
 
-    constructor(painter: Painter, sourceCache?: SourceCache, options?: TerrainSpecification) {
+    constructor(painter: Painter, sourceCache: SourceCache, options: TerrainSpecification) {
         this.painter = painter;
-        this.sourceCache = sourceCache ? new TerrainSourceCache(sourceCache) : null;
+        this.sourceCache = new TerrainSourceCache(sourceCache);
         this.options = options;
-        this.exaggeration = options ? (typeof options.exaggeration === 'number' ? options.exaggeration : 1.0) : 1.0;
+        this.exaggeration = typeof options.exaggeration === 'number' ? options.exaggeration : 1.0;
         this.qualityFactor = 2;
         this.meshSize = 128;
         this._demMatrixCache = {};
