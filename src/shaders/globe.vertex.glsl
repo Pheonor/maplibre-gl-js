@@ -47,6 +47,12 @@ void main() {
     // Extract (Lon,Lat) from tile coordinates
     vec4 lat_lng = u_tile_matrix * vec4(a_pos3d.xy, 0, 1);
 
+    // Fill pole hole by extending mercator boundary to 90°
+    if (lat_lng[0] > 85.0)
+        lat_lng[0] = 90.0;
+    if (lat_lng[0] < -85.0)
+        lat_lng[0] = -90.0;
+
     // Convert to 3D position on Globe
     vec3 globe_pos = latLngToGlobePos(lat_lng.xy);
     // And apply current Globe orientation (center, zoom, pitch and bearing)
