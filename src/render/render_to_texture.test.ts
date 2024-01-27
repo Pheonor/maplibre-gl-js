@@ -1,4 +1,4 @@
-import {RenderToTexture} from './render_to_texture';
+import {RenderToTextureTerrain} from './render_to_texture_terrain';
 import type {Painter} from './painter';
 import type {LineStyleLayer} from '../style/style_layer/line_style_layer';
 import type {SymbolStyleLayer} from '../style/style_layer/symbol_style_layer';
@@ -100,7 +100,7 @@ describe('render to texture', () => {
     terrain.sourceCache.getTerrainCoords = () => { return {[tile.tileID.key]: tile.tileID}; };
     map.terrain = terrain;
 
-    const rtt = new RenderToTexture(painter, terrain);
+    const rtt = new RenderToTextureTerrain(painter, terrain);
     rtt.prepareForRender(style, 0);
     painter.renderToTexture = rtt;
 

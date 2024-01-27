@@ -382,14 +382,26 @@ export class Painter {
             this.opaquePassCutoff = 0;
 
             // update coords/depth-framebuffer on camera movement, or tile reloading
-            const newTiles = this.style.map.terrain.sourceCache.tilesAfterTime(this.terrainFacilitator.renderTime);
-            if (this.terrainFacilitator.dirty || !mat4.equals(this.terrainFacilitator.matrix, this.transform.projMatrix) || newTiles.length) {
-                mat4.copy(this.terrainFacilitator.matrix, this.transform.projMatrix);
-                this.terrainFacilitator.renderTime = Date.now();
-                this.terrainFacilitator.dirty = false;
-                drawDepth(this, this.style.map.terrain);
-                drawCoords(this, this.style.map.terrain);
+            if (this.style.map.terrain) {
+                const newTiles = this.style.map.terrain.sourceCache.tilesAfterTime(this.terrainFacilitator.renderTime);
+                if (this.terrainFacilitator.dirty || !mat4.equals(this.terrainFacilitator.matrix, this.transform.projMatrix) || newTiles.length) {
+                    mat4.copy(this.terrainFacilitator.matrix, this.transform.projMatrix);
+                    this.terrainFacilitator.renderTime = Date.now();
+                    this.terrainFacilitator.dirty = false;
+                    drawDepth(this, this.style.map.terrain);
+                    drawCoords(this, this.style.map.terrain);
+                }
             }
+            // if (this.style.map.globe) {
+            //     const newTiles = this.style.map.globe.sourceCache.tilesAfterTime(this.terrainFacilitator.renderTime);
+            //     if (this.terrainFacilitator.dirty || !mat4.equals(this.terrainFacilitator.matrix, this.transform.projMatrix) || newTiles.length) {
+            //         mat4.copy(this.terrainFacilitator.matrix, this.transform.projMatrix);
+            //         this.terrainFacilitator.renderTime = Date.now();
+            //         this.terrainFacilitator.dirty = false;
+            //         drawDepth(this, this.style.map.terrain);
+            //         drawCoords(this, this.style.map.terrain);
+            //     }
+            // }
         }
 
         // Offscreen pass ===============================================
@@ -574,7 +586,8 @@ export class Painter {
         const key = name +
             (programConfiguration ? programConfiguration.cacheKey : '') +
             (this._showOverdrawInspector ? '/overdraw' : '') +
-            (this.style.map.terrain ? '/terrain' : '');
+            (this.style.map.terrain ? '/terrain' : '') +
+            (this.style.map.globe ? '/globe' : '');
         if (!this.cache[key]) {
             this.cache[key] = new Program(
                 this.context,

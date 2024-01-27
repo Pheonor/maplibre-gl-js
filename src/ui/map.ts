@@ -27,7 +27,7 @@ import {PerformanceMarkers, PerformanceUtils} from '../util/performance';
 import {Source} from '../source/source';
 import {StyleLayer} from '../style/style_layer';
 import {Terrain} from '../render/terrain';
-import {RenderToTexture} from '../render/render_to_texture';
+import {RenderToTextureTerrain} from '../render/render_to_texture_terrain';
 import {config} from '../util/config';
 import {defaultLocale} from './default_locale';
 
@@ -59,6 +59,8 @@ import type {MapGeoJSONFeature} from '../util/vectortile_to_geojson';
 import type {ControlPosition, IControl} from './control/control';
 import type {QueryRenderedFeaturesOptions, QuerySourceFeatureOptions} from '../source/query_features';
 import {Projection} from '../geo/projection';
+import {RenderToTextureGlobe} from '../render/render_to_texture_globe';
+import {Globe} from '../render/globe';
 
 const version = packageJSON.version;
 
@@ -1177,6 +1179,29 @@ export class Map extends Camera {
     setProjection(projectionName: string): Map {
         this.transform.projection = projectionName;
 
+        // clear event handlers
+        if (this._terrainDataCallback) this.style.off('data', this._terrainDataCallback);
+
+        if (!this.transform.projection.isGlobe(this.transform.zoom)) {
+            // remove globe
+            if (this.globe) this.globe.sourceCache.destruct();
+            this.globe = null;
+            if (this.painter.renderToTexture) this.painter.renderToTexture.destruct();
+            this.painter.renderToTexture = null;
+        } else {
+            // add globe
+            this.globe = new Globe(this.painter);
+            this.painter.renderToTexture = new RenderToTextureGlobe(this.painter, this.globe);
+            this._terrainDataCallback = e => {
+                if (e.dataType === 'style') {
+                    this.globe.sourceCache.freeRtt();
+                } else if (e.dataType === 'source' && e.tile) {
+                    this.globe.sourceCache.freeRtt(e.tile.tileID);
+                }
+            };
+            this.style.on('data', this._terrainDataCallback);
+        }
+
         this.fire(new Event('projection', {projection: projectionName}));
         return this._update();
     }
@@ -1963,6 +1988,10 @@ export class Map extends Camera {
     setTerrain(options: TerrainSpecification | null): this {
         this.style._checkLoaded();
 
+        // if already a globe, do nothing
+        if (this.globe)
+            return;
+
         // clear event handlers
         if (this._terrainDataCallback) this.style.off('data', this._terrainDataCallback);
 
@@ -1988,7 +2017,7 @@ export class Map extends Camera {
                 }
             }
             this.terrain = new Terrain(this.painter, sourceCache, options);
-            this.painter.renderToTexture = new RenderToTexture(this.painter, this.terrain);
+            this.painter.renderToTexture = new RenderToTextureTerrain(this.painter, this.terrain);
             this.transform.minElevationForCurrentTile = this.terrain.getMinTileElevationForLngLatZoom(this.transform.center, this.transform.tileZoom);
             this.transform.elevation = this.terrain.getElevationForLngLatZoom(this.transform.center, this.transform.tileZoom);
             this._terrainDataCallback = e => {
@@ -3087,18 +3116,18 @@ export class Map extends Camera {
 
         // For Globe projection, activate a Terrain if needed
         if (this.transform.projection.isGlobe(this.painter.transform.zoom)) {
-            if (!this.terrain) {
-                // Configure a terrain to enforce 'drapping'
-                if (!this.getSource('terrainSource')) {
-                    this.addSource('terrainSource', {
-                        type: 'raster-dem',
-                        url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
-                        tileSize: 256
-                    });
-                }
-                const terrainOptions = {source: 'terrainSource', exaggeration: 0};
-                this.setTerrain(terrainOptions);
-            }
+            // if (!this.terrain) {
+            //     // Configure a terrain to enforce 'drapping'
+            //     if (!this.getSource('terrainSource')) {
+            //         this.addSource('terrainSource', {
+            //             type: 'raster-dem',
+            //             url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
+            //             tileSize: 256
+            //         });
+            //     }
+            //     const terrainOptions = {source: 'terrainSource', exaggeration: 0};
+            //     this.setTerrain(terrainOptions);
+            // }
         }
 
         // If the style has changed, the map is being zoomed, or a transition or fade is in progress:
@@ -3145,6 +3174,11 @@ export class Map extends Camera {
         } else {
             this.transform.minElevationForCurrentTile = 0;
             this.transform.elevation = 0;
+        }
+
+        // update globe stuff
+        if (this.globe) {
+            this.globe.sourceCache.update(this.transform, this.globe);
         }
 
         this._placementDirty = this.style && this.style._updatePlacement(this.painter.transform, this.showCollisionBoxes, fadeDuration, this._crossSourceCollisions);

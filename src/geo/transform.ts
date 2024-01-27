@@ -412,7 +412,7 @@ export class Transform {
             roundZoom?: boolean;
             reparseOverscaled?: boolean;
             renderWorldCopies?: boolean;
-            terrain?: Terrain;
+            terrain?: boolean;
         }
     ): Array<OverscaledTileID> {
         let z = this.coveringZoomLevel(options);

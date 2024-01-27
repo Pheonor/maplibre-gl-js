@@ -2,10 +2,7 @@ import {Painter} from './painter';
 import {Tile} from '../source/tile';
 import {Color} from '@maplibre/maplibre-gl-style-spec';
 import {OverscaledTileID} from '../source/tile_id';
-import {drawTerrain} from './draw_terrain';
-import {drawGlobe} from './draw_globe';
 import {Style} from '../style/style';
-import {Terrain} from './terrain';
 import {RenderPool} from '../gl/render_pool';
 import {Texture} from './texture';
 import type {StyleLayer} from '../style/style_layer';
@@ -13,7 +10,7 @@ import type {StyleLayer} from '../style/style_layer';
 /**
  * lookup table which layers should rendered to texture
  */
-const LAYERS: { [keyof in StyleLayer['type']]?: boolean } = {
+export const LAYERS: { [keyof in StyleLayer['type']]?: boolean } = {
     background: true,
     fill: true,
     line: true,
@@ -25,9 +22,8 @@ const LAYERS: { [keyof in StyleLayer['type']]?: boolean } = {
  * @internal
  * A helper class to help define what should be rendered to texture and how
  */
-export class RenderToTexture {
+export abstract class RenderToTexture {
     painter: Painter;
-    terrain: Terrain;
     pool: RenderPool;
     /**
      * coordsDescendingInv contains a list of all tiles which should be rendered for one render-to-texture tile
@@ -63,10 +59,9 @@ export class RenderToTexture {
      */
     _renderableLayerIds: Array<string>;
 
-    constructor(painter: Painter, terrain: Terrain) {
+    constructor(painter: Painter, tileSize: number) {
         this.painter = painter;
-        this.terrain = terrain;
-        this.pool = new RenderPool(painter.context, 30, terrain.sourceCache.tileSize * terrain.qualityFactor);
+        this.pool = new RenderPool(painter.context, 30, tileSize);
     }
 
     destruct() {
@@ -77,47 +72,9 @@ export class RenderToTexture {
         return this.pool.getObjectForId(tile.rtt[this._stacks.length - 1].id).texture;
     }
 
-    prepareForRender(style: Style, zoom: number) {
-        this._stacks = [];
-        this._prevType = null;
-        this._rttTiles = [];
-        this._renderableTiles = this.terrain.sourceCache.getRenderableTiles();
-        this._renderableLayerIds = style._order.filter(id => !style._layers[id].isHidden(zoom));
+    abstract prepareForRender(style: Style, zoom: number);
 
-        this._coordsDescendingInv = {};
-        for (const id in style.sourceCaches) {
-            this._coordsDescendingInv[id] = {};
-            const tileIDs = style.sourceCaches[id].getVisibleCoordinates();
-            for (const tileID of tileIDs) {
-                const keys = this.terrain.sourceCache.getTerrainCoords(tileID);
-                for (const key in keys) {
-                    if (!this._coordsDescendingInv[id][key]) this._coordsDescendingInv[id][key] = [];
-                    this._coordsDescendingInv[id][key].push(keys[key]);
-                }
-            }
-        }
-
-        this._coordsDescendingInvStr = {};
-        for (const id of style._order) {
-            const layer = style._layers[id], source = layer.source;
-            if (LAYERS[layer.type]) {
-                if (!this._coordsDescendingInvStr[source]) {
-                    this._coordsDescendingInvStr[source] = {};
-                    for (const key in this._coordsDescendingInv[source])
-                        this._coordsDescendingInvStr[source][key] = this._coordsDescendingInv[source][key].map(c => c.key).sort().join();
-                }
-            }
-        }
-
-        // check tiles to render
-        for (const tile of this._renderableTiles) {
-            for (const source in this._coordsDescendingInvStr) {
-                // rerender if there are more coords to render than in the last rendering
-                const coords = this._coordsDescendingInvStr[source][tile.tileID.key];
-                if (coords && coords !== tile.rttCoords[source]) tile.rtt = [];
-            }
-        }
-    }
+    abstract draw(painter: Painter, tiles: Array<Tile>);
 
     /**
      * due that switching textures is relatively slow, the render
@@ -154,11 +111,7 @@ export class RenderToTexture {
             for (const tile of this._renderableTiles) {
                 // if render pool is full draw current tiles to screen and free pool
                 if (this.pool.isFull()) {
-                    if (this.painter.transform.projection.isGlobe(this.painter.transform.zoom)) {
-                        drawGlobe(this.painter, this.terrain, this._rttTiles);
-                    } else {
-                        drawTerrain(this.painter, this.terrain, this._rttTiles);
-                    }
+                    this.draw(this.painter, this._rttTiles);
                     this._rttTiles = [];
                     this.pool.freeAllObjects();
                 }
@@ -189,11 +142,7 @@ export class RenderToTexture {
                     if (layer.source) tile.rttCoords[layer.source] = this._coordsDescendingInvStr[layer.source][tile.tileID.key];
                 }
             }
-            if (this.painter.transform.projection.isGlobe(this.painter.transform.zoom)) {
-                drawGlobe(this.painter, this.terrain, this._rttTiles);
-            } else {
-                drawTerrain(this.painter, this.terrain, this._rttTiles);
-            }
+            this.draw(this.painter, this._rttTiles);
             this._rttTiles = [];
             this.pool.freeAllObjects();
 
