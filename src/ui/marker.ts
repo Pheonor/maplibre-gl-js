@@ -575,7 +575,7 @@ export class Marker extends Evented {
         // we only round them when _update is called with `moveend` or when its called with
         // no arguments (when the Marker is initialized or Marker#setLngLat is invoked).
         if (!e || e.type === 'moveend') {
-            this._pos = this._pos.round();
+            this._pos = this._pos.mult(window.devicePixelRatio).round().div(window.devicePixelRatio);
         }
 
         DOM.setTransform(this._element, `${anchorTranslate[this._anchor]} translate(${this._pos.x}px, ${this._pos.y}px) ${pitch} ${rotation}`);
