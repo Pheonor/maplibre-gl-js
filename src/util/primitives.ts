@@ -4,7 +4,7 @@ class Frustum {
 
     constructor(public points: vec4[], public planes: vec4[]) { }
 
-    public static fromInvProjectionMatrix(invProj: mat4, worldSize: number, zoom: number): Frustum {
+    public static fromInvProjectionMatrix(invProj: mat4, worldSize: number, zoom: number, isGlobe: boolean): Frustum {
         const clipSpaceCorners = [
             [-1, 1, -1, 1],
             [1, 1, -1, 1],
@@ -22,7 +22,7 @@ class Frustum {
         const frustumCoords = clipSpaceCorners.map(v => {
             v = vec4.transformMat4([] as any, v as any, invProj) as any;
             const s = 1.0 / v[3] / worldSize * scale;
-            return vec4.mul(v as any, v as any, [s, s, 1.0 / v[3], s] as vec4);
+            return vec4.mul(v as any, v as any, [s, s, isGlobe ? s : 1.0 / v[3], s] as vec4);
         });
 
         const frustumPlanePointIndices = [

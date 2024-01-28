@@ -426,7 +426,7 @@ export class Transform {
         const numTiles = Math.pow(2, z);
         const cameraPoint = [numTiles * cameraCoord.x, numTiles * cameraCoord.y, 0];
         const centerPoint = [numTiles * centerCoord.x, numTiles * centerCoord.y, 0];
-        const cameraFrustum = Frustum.fromInvProjectionMatrix(this.invProjMatrix, this.worldSize, z);
+        const cameraFrustum = Frustum.fromInvProjectionMatrix(this.invProjMatrix, this.worldSize, z, this.projection.isGlobe(this.zoom));
 
         // No change of LOD behavior for pitch lower than 60 and when there is no top padding: return only tile ids from the requested zoom level
         let minZoom = options.minzoom || 0;
@@ -439,7 +439,8 @@ export class Transform {
 
         const newRootTile = (wrap: number): any => {
             return {
-                aabb: new Aabb([wrap * numTiles, 0, 0], [(wrap + 1) * numTiles, numTiles, 0]),
+                aabb: this.createAabbFromTile(numTiles, 0, 0, 0, wrap),
+                //aabb: new Aabb([wrap * numTiles, 0, 0], [(wrap + 1) * numTiles, numTiles, 0]),
                 zoom: 0,
                 x: 0,
                 y: 0,

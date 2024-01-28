@@ -54,7 +54,7 @@ describe('primitives', () => {
         mat4.rotateZ(proj, proj, rotation);
         mat4.invert(invProj, proj);
 
-        return Frustum.fromInvProjectionMatrix(invProj, 1.0, 0.0);
+        return Frustum.fromInvProjectionMatrix(invProj, 1.0, 0.0, false);
     };
 
     test('Aabb fully inside a frustum', () => {
@@ -108,7 +108,7 @@ describe('frustum', () => {
         mat4.perspective(proj, Math.PI / 2, 1.0, 0.1, 100.0);
         mat4.invert(invProj, proj);
 
-        const frustum = Frustum.fromInvProjectionMatrix(invProj, 1.0, 0.0);
+        const frustum = Frustum.fromInvProjectionMatrix(invProj, 1.0, 0.0, false);
         // mat4.perspective generates a projection matrix for right handed coordinate space.
         // This means that forward direction will be -z
         const expectedFrustumPoints = [
