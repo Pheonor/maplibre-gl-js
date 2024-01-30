@@ -391,7 +391,7 @@ export class Transform {
                 }
             }
 
-            return new Aabb([cornerMin[0], cornerMin[1], 0/*cornerMin[2]*/], [cornerMax[0], cornerMax[1], 0/*cornerMax[2]*/]);
+            return new Aabb([cornerMin[0], cornerMin[1], cornerMin[2]], [cornerMax[0], cornerMax[1], cornerMax[2]]);
         }
 
         // If not globe, return classic AABB
@@ -440,7 +440,6 @@ export class Transform {
         const newRootTile = (wrap: number): any => {
             return {
                 aabb: this.createAabbFromTile(numTiles, 0, 0, 0, wrap),
-                //aabb: new Aabb([wrap * numTiles, 0, 0], [(wrap + 1) * numTiles, numTiles, 0]),
                 zoom: 0,
                 x: 0,
                 y: 0,
