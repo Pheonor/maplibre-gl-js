@@ -391,7 +391,7 @@ export class Transform {
                 }
             }
 
-            return new Aabb([cornerMin[0], cornerMin[1], 0/*cornerMin[2]*/], [cornerMax[0], cornerMax[1], 0/*cornerMax[2]*/]);
+            return new Aabb([cornerMin[0], cornerMin[1], cornerMin[2]], [cornerMax[0], cornerMax[1], cornerMax[2]]);
         }
 
         // If not globe, return classic AABB
@@ -926,7 +926,8 @@ export class Transform {
 
         if (this.projection.isGlobe(this.zoom)) {
             // farZ should be evaluated differently in Globe mode... for the moment, use a multiple of the earth Radius
-            farZ = 15 * this.worldSize / 2.0 / Math.PI;
+            const worldSizeRadius = this.worldSize / (2.0 * Math.PI);
+            farZ += worldSizeRadius / 2;
         }
 
         // The larger the value of nearZ is

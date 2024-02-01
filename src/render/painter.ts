@@ -29,7 +29,7 @@ import {drawFillExtrusion} from './draw_fill_extrusion';
 import {drawHillshade} from './draw_hillshade';
 import {drawRaster} from './draw_raster';
 import {drawBackground} from './draw_background';
-import {drawDebug, drawDebugPadding, selectDebugSource} from './draw_debug';
+import {drawDebug, drawDebugPadding, drawDebugTilesOnScreen, selectDebugSource} from './draw_debug';
 import {drawCustom} from './draw_custom';
 import {drawDepth, drawCoords} from './draw_terrain';
 import {OverscaledTileID} from '../source/tile_id';
@@ -53,6 +53,7 @@ export type RenderPass = 'offscreen' | 'opaque' | 'translucent';
 type PainterOptions = {
     showOverdrawInspector: boolean;
     showTileBoundaries: boolean;
+    showTileOnScreen: boolean;
     showPadding: boolean;
     rotating: boolean;
     zooming: boolean;
@@ -471,6 +472,13 @@ export class Painter {
             const selectedSource = selectDebugSource(this.style, this.transform.zoom);
             if (selectedSource) {
                 drawDebug(this, selectedSource, selectedSource.getVisibleCoordinates());
+            }
+        }
+
+        if (this.options.showTileOnScreen) {
+            const selectedSource = selectDebugSource(this.style, this.transform.zoom);
+            if (selectedSource) {
+                drawDebugTilesOnScreen(this, selectedSource, selectedSource.getVisibleCoordinates());
             }
         }
 

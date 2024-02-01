@@ -441,6 +441,7 @@ export class Map extends Camera {
     _controlPositions: {[_: string]: HTMLElement};
     _interactive: boolean;
     _showTileBoundaries: boolean;
+    _showTileOnScreen: boolean;
     _showCollisionBoxes: boolean;
     _showPadding: boolean;
     _showOverdrawInspector: boolean;
@@ -3187,6 +3188,7 @@ export class Map extends Camera {
         this.painter.render(this.style, {
             showTileBoundaries: this.showTileBoundaries,
             showOverdrawInspector: this._showOverdrawInspector,
+            showTileOnScreen: this.showTileOnScreen,
             rotating: this.isRotating(),
             zooming: this.isZooming(),
             moving: this.isMoving(),
@@ -3341,6 +3343,22 @@ export class Map extends Camera {
     set showTileBoundaries(value: boolean) {
         if (this._showTileBoundaries === value) return;
         this._showTileBoundaries = value;
+        this._update();
+    }
+
+    /**
+     * Gets and sets a Boolean indicating whether the map will render an outline
+     * on screen of each tile. These tile boundaries are useful for debugging.
+     *
+     * @example
+     * ```ts
+     * map.showTileOnScreen = true;
+     * ```
+     */
+    get showTileOnScreen(): boolean { return !!this._showTileOnScreen; }
+    set showTileOnScreen(value: boolean) {
+        if (this._showTileOnScreen === value) return;
+        this._showTileOnScreen = value;
         this._update();
     }
 

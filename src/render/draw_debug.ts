@@ -9,6 +9,8 @@ import type {Painter} from './painter';
 import type {SourceCache} from '../source/source_cache';
 import type {OverscaledTileID} from '../source/tile_id';
 import {Style} from '../style/style';
+import {mat4} from 'gl-matrix';
+import {EXTENT} from '../data/extent';
 
 const topColor = new Color(1, 0, 0, 1);
 const btmColor = new Color(0, 1, 0, 1);
@@ -47,6 +49,16 @@ function drawHorizontalLine(painter: Painter, y: number, lineWidth: number, colo
 
 function drawVerticalLine(painter: Painter, x: number, lineWidth: number, color: Color) {
     drawDebugSSRect(painter, x - lineWidth / 2, 0, lineWidth,  painter.transform.height, color);
+}
+
+function drawRectangle(painter: Painter, x: number, y: number, width: number, height: number, color: Color) {
+    const lineWidth = 2;
+    //Vertical line
+    drawDebugSSRect(painter, x - lineWidth / 2, y - lineWidth / 2, lineWidth, height + lineWidth, color);
+    drawDebugSSRect(painter, x + width - lineWidth / 2, y - lineWidth / 2, lineWidth, height + lineWidth, color);
+    //Horizontal line
+    drawDebugSSRect(painter, x - lineWidth / 2, y - lineWidth / 2, width + lineWidth, lineWidth, color);
+    drawDebugSSRect(painter, x - lineWidth / 2, y + height - lineWidth / 2, width + lineWidth, lineWidth, color);
 }
 
 function drawDebugSSRect(painter: Painter, x: number, y: number, width: number, height: number, color: Color) {
@@ -98,6 +110,19 @@ function drawDebugTile(painter: Painter, sourceCache: SourceCache, coord: Oversc
     program.draw(context, gl.LINE_STRIP, depthMode, stencilMode, colorMode, CullFaceMode.disabled,
         debugUniformValues(posMatrix, Color.red), terrainData, id,
         painter.debugBuffer, painter.tileBorderIndexBuffer, painter.debugSegments);
+}
+
+export function drawDebugTilesOnScreen(painter: Painter, sourceCache: SourceCache, coords: Array<OverscaledTileID>) {
+    for (let i = 0; i < coords.length; i++) {
+        drawDebugTileOnScreen(painter, sourceCache, coords[i]);
+    }
+}
+function drawDebugTileOnScreen(painter: Painter, sourceCache: SourceCache, coord: OverscaledTileID) {
+    // Display tile in screen space
+    const canonical = coord.canonical;
+    const scaleX = painter.transform.width / Math.pow(2, canonical.z);
+    const scaleY = painter.transform.height / Math.pow(2, canonical.z);
+    drawRectangle(painter, canonical.x * scaleX, painter.transform.height - (canonical.y + 1) * scaleY, scaleX, scaleY, topColor);
 }
 
 function drawTextToOverlay(painter: Painter, text: string) {
