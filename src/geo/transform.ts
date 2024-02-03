@@ -795,6 +795,10 @@ export class Transform {
         return cache[posMatrixKey];
     }
 
+    /**
+     * Calculate the tileMatrix that, given a tile coordinate, would be used tocompute tile coordinates.
+     * @param overscaledTileID - the tile ID
+     */
     calculateTileMatrix(overscaledTileID: OverscaledTileID): mat4 {
         const tileMatrixKey = overscaledTileID.key;
         if (this._tileMatrixCache[tileMatrixKey]) {
