@@ -2,7 +2,6 @@ import {Painter} from './painter';
 import {Tile} from '../source/tile';
 import {Color} from '@maplibre/maplibre-gl-style-spec';
 import {OverscaledTileID} from '../source/tile_id';
-import {drawGlobe} from './draw_globe';
 import {drawTerrain} from './draw_terrain';
 import {Style} from '../style/style';
 import {Terrain} from './terrain';
