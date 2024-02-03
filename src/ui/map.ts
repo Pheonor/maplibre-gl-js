@@ -1178,7 +1178,7 @@ export class Map extends Camera {
     setProjection(projectionName: string): Map {
         this.transform.projection = projectionName;
 
-        this.updateRenderToTexture(null);
+        this.updateRenderToTexture(this.getTerrain());
 
         this.fire(new Event('projection', {projection: projectionName}));
         return this._update();
