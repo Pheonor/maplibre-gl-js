@@ -4,10 +4,8 @@ import {globeUniformValues} from './program/globe_program';
 import type {Painter} from './painter';
 import type {Tile} from '../source/tile';
 import {CullFaceMode} from '../gl/cull_face_mode';
-import {Globe} from './globe';
+import {Terrain} from './terrain';
 import {vec3} from 'gl-matrix';
-import {ColorMode} from '../gl/color_mode';
-import {Color} from '@maplibre/maplibre-gl-style-spec';
 
 /**
  * Draw the Globe
@@ -15,13 +13,13 @@ import {Color} from '@maplibre/maplibre-gl-style-spec';
  * @param globe - the globe
  * @param tiles   - Tile list
  */
-function drawGlobe(painter: Painter, globe: Globe, tiles: Array<Tile>) {
+function drawGlobe(painter: Painter, terrain: Terrain, tiles: Array<Tile>) {
     const context = painter.context;
     const gl = context.gl;
     const colorMode = painter.colorModeForRenderPass();
     const depthMode = new DepthMode(gl.LEQUAL, DepthMode.ReadWrite, painter.depthRangeFor3D);
     const program = painter.useProgram('globe');
-    const mesh = globe.getTerrainMesh();
+    const mesh = terrain.getTerrainMesh();
 
     context.bindFramebuffer.set(null);
     context.viewport.set([0, 0, painter.width, painter.height]);

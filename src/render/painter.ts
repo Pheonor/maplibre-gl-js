@@ -594,8 +594,7 @@ export class Painter {
         const key = name +
             (programConfiguration ? programConfiguration.cacheKey : '') +
             (this._showOverdrawInspector ? '/overdraw' : '') +
-            (this.style.map.terrain ? '/terrain' : '') +
-            (this.style.map.globe ? '/globe' : '');
+            (this.style.map.terrain ? '/terrain' : '');
         if (!this.cache[key]) {
             this.cache[key] = new Program(
                 this.context,

@@ -27,7 +27,6 @@ import {PerformanceMarkers, PerformanceUtils} from '../util/performance';
 import {Source} from '../source/source';
 import {StyleLayer} from '../style/style_layer';
 import {Terrain} from '../render/terrain';
-import {RenderToTextureTerrain} from '../render/render_to_texture_terrain';
 import {config} from '../util/config';
 import {defaultLocale} from './default_locale';
 
@@ -59,8 +58,7 @@ import type {MapGeoJSONFeature} from '../util/vectortile_to_geojson';
 import type {ControlPosition, IControl} from './control/control';
 import type {QueryRenderedFeaturesOptions, QuerySourceFeatureOptions} from '../source/query_features';
 import {Projection} from '../geo/projection';
-import {RenderToTextureGlobe} from '../render/render_to_texture_globe';
-import {Globe} from '../render/globe';
+import {RenderToTexture} from '../render/render_to_texture';
 
 const version = packageJSON.version;
 
@@ -1180,28 +1178,7 @@ export class Map extends Camera {
     setProjection(projectionName: string): Map {
         this.transform.projection = projectionName;
 
-        // clear event handlers
-        if (this._terrainDataCallback) this.style.off('data', this._terrainDataCallback);
-
-        if (!this.transform.projection.isGlobe(this.transform.zoom)) {
-            // remove globe
-            if (this.globe) this.globe.sourceCache.destruct();
-            this.globe = null;
-            if (this.painter.renderToTexture) this.painter.renderToTexture.destruct();
-            this.painter.renderToTexture = null;
-        } else {
-            // add globe
-            this.globe = new Globe(this.painter);
-            this.painter.renderToTexture = new RenderToTextureGlobe(this.painter, this.globe);
-            this._terrainDataCallback = e => {
-                if (e.dataType === 'style') {
-                    this.globe.sourceCache.freeRtt();
-                } else if (e.dataType === 'source' && e.tile) {
-                    this.globe.sourceCache.freeRtt(e.tile.tileID);
-                }
-            };
-            this.style.on('data', this._terrainDataCallback);
-        }
+        this.updateRenderToTexture(null);
 
         this.fire(new Event('projection', {projection: projectionName}));
         return this._update();
@@ -1989,51 +1966,7 @@ export class Map extends Camera {
     setTerrain(options: TerrainSpecification | null): this {
         this.style._checkLoaded();
 
-        // if already a globe, do nothing
-        if (this.globe)
-            return;
-
-        // clear event handlers
-        if (this._terrainDataCallback) this.style.off('data', this._terrainDataCallback);
-
-        if (!options) {
-            // remove terrain
-            if (this.terrain) this.terrain.sourceCache.destruct();
-            this.terrain = null;
-            if (this.painter.renderToTexture) this.painter.renderToTexture.destruct();
-            this.painter.renderToTexture = null;
-            this.transform.minElevationForCurrentTile = 0;
-            this.transform.elevation = 0;
-        } else {
-            // add terrain
-            const sourceCache = this.style.sourceCaches[options.source];
-            if (!sourceCache) throw new Error(`cannot load terrain, because there exists no source with ID: ${options.source}`);
-            // Update terrain tiles when adding new terrain
-            if (this.terrain === null) sourceCache.reload();
-            // Warn once if user is using the same source for hillshade and terrain
-            for (const index in this.style._layers) {
-                const thisLayer = this.style._layers[index];
-                if (thisLayer.type === 'hillshade' && thisLayer.source === options.source) {
-                    warnOnce('You are using the same source for a hillshade layer and for 3D terrain. Please consider using two separate sources to improve rendering quality.');
-                }
-            }
-            this.terrain = new Terrain(this.painter, sourceCache, options);
-            this.painter.renderToTexture = new RenderToTextureTerrain(this.painter, this.terrain);
-            this.transform.minElevationForCurrentTile = this.terrain.getMinTileElevationForLngLatZoom(this.transform.center, this.transform.tileZoom);
-            this.transform.elevation = this.terrain.getElevationForLngLatZoom(this.transform.center, this.transform.tileZoom);
-            this._terrainDataCallback = e => {
-                if (e.dataType === 'style') {
-                    this.terrain.sourceCache.freeRtt();
-                } else if (e.dataType === 'source' && e.tile) {
-                    if (e.sourceId === options.source && !this._elevationFreeze) {
-                        this.transform.minElevationForCurrentTile = this.terrain.getMinTileElevationForLngLatZoom(this.transform.center, this.transform.tileZoom);
-                        this.transform.elevation = this.terrain.getElevationForLngLatZoom(this.transform.center, this.transform.tileZoom);
-                    }
-                    this.terrain.sourceCache.freeRtt(e.tile.tileID);
-                }
-            };
-            this.style.on('data', this._terrainDataCallback);
-        }
+        this.updateRenderToTexture(options);
 
         this.fire(new Event('terrain', {terrain: options}));
         return this;
@@ -2049,6 +1982,56 @@ export class Map extends Camera {
      */
     getTerrain(): TerrainSpecification | null {
         return this.terrain?.options ?? null;
+    }
+
+    updateRenderToTexture(options: TerrainSpecification | null) {
+
+        // clear event handlers
+        if (this._terrainDataCallback) this.style.off('data', this._terrainDataCallback);
+
+        if (!options && !this.transform.projection.isGlobe(this.transform.zoom)) {
+            // remove terrain or globe
+            if (this.terrain) this.terrain.sourceCache.destruct();
+            this.terrain = null;
+            if (this.painter.renderToTexture) this.painter.renderToTexture.destruct();
+            this.painter.renderToTexture = null;
+            this.transform.minElevationForCurrentTile = 0;
+            this.transform.elevation = 0;
+        } else {
+            if (options) {
+                // add terrain
+                const sourceCache = this.style.sourceCaches[options.source];
+                if (!sourceCache) throw new Error(`cannot load terrain, because there exists no source with ID: ${options.source}`);
+                // Update terrain tiles when adding new terrain
+                if (this.terrain === null) sourceCache.reload();
+                // Warn once if user is using the same source for hillshade and terrain
+                for (const index in this.style._layers) {
+                    const thisLayer = this.style._layers[index];
+                    if (thisLayer.type === 'hillshade' && thisLayer.source === options.source) {
+                        warnOnce('You are using the same source for a hillshade layer and for 3D terrain. Please consider using two separate sources to improve rendering quality.');
+                    }
+                }
+                this.terrain = new Terrain(this.painter, sourceCache, options);
+            } else {
+                // add globe
+                this.terrain = new Terrain(this.painter);
+            }
+            this.painter.renderToTexture = new RenderToTexture(this.painter, this.terrain);
+            this.transform.minElevationForCurrentTile = this.terrain.getMinTileElevationForLngLatZoom(this.transform.center, this.transform.tileZoom);
+            this.transform.elevation = this.terrain.getElevationForLngLatZoom(this.transform.center, this.transform.tileZoom);
+            this._terrainDataCallback = e => {
+                if (e.dataType === 'style') {
+                    this.terrain.sourceCache.freeRtt();
+                } else if (e.dataType === 'source' && e.tile) {
+                    if (options && e.sourceId === options.source && !this._elevationFreeze) {
+                        this.transform.minElevationForCurrentTile = this.terrain.getMinTileElevationForLngLatZoom(this.transform.center, this.transform.tileZoom);
+                        this.transform.elevation = this.terrain.getElevationForLngLatZoom(this.transform.center, this.transform.tileZoom);
+                    }
+                    this.terrain.sourceCache.freeRtt(e.tile.tileID);
+                }
+            };
+            this.style.on('data', this._terrainDataCallback);
+        }
     }
 
     /**
@@ -3175,11 +3158,6 @@ export class Map extends Camera {
         } else {
             this.transform.minElevationForCurrentTile = 0;
             this.transform.elevation = 0;
-        }
-
-        // update globe stuff
-        if (this.globe) {
-            this.globe.sourceCache.update(this.transform);
         }
 
         this._placementDirty = this.style && this.style._updatePlacement(this.painter.transform, this.showCollisionBoxes, fadeDuration, this._crossSourceCollisions);

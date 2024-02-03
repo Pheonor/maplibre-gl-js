@@ -66,7 +66,7 @@ export function drawLine(painter: Painter, sourceCache: SourceCache, layer: Line
             if (posTo && posFrom) programConfiguration.setConstantPatternPositions(posTo, posFrom);
         }
 
-        const terrainCoord = terrainData || painter.style.map.globe ? coord : null;
+        const terrainCoord = terrainData ? coord : null;
         const uniformValues = image ? linePatternUniformValues(painter, tile, layer, crossfade, terrainCoord) :
             dasharray ? lineSDFUniformValues(painter, tile, layer, dasharray, crossfade, terrainCoord) :
                 gradient ? lineGradientUniformValues(painter, tile, layer, bucket.lineClipsArray.length, terrainCoord) :

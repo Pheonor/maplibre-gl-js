@@ -244,7 +244,6 @@ export type CameraUpdateTransformFunction =  (next: {
 export abstract class Camera extends Evented {
     transform: Transform;
     terrain: Terrain;
-    globe: Globe;
 
     _moving: boolean;
     _zooming: boolean;

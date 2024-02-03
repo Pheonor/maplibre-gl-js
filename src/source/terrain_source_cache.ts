@@ -91,7 +91,7 @@ export class TerrainSourceCache extends Evented {
             minzoom: this.minzoom,
             maxzoom: this.maxzoom,
             reparseOverscaled: false,
-            terrain: true
+            terrain
         })) {
             keys[tileID.key] = true;
             this._renderableTilesKeys.push(tileID.key);
