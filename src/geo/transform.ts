@@ -354,7 +354,7 @@ export class Transform {
     }
 
     createAabbFromTile(numTiles: number, z: number, x: number, y: number, wrap: number): Aabb {
-        if (this.projection.isGlobe(this.zoom)) {
+        if (this.isGlobe()) {
             // Compute AABB by taking account Globe shape
 
             // Retrieve corner in x, y, z coordinates and convert to 2D (x, y) coordinates
@@ -426,7 +426,7 @@ export class Transform {
         const numTiles = Math.pow(2, z);
         const cameraPoint = [numTiles * cameraCoord.x, numTiles * cameraCoord.y, 0];
         const centerPoint = [numTiles * centerCoord.x, numTiles * centerCoord.y, 0];
-        const cameraFrustum = Frustum.fromInvProjectionMatrix(this.invProjMatrix, this.worldSize, z, this.projection.isGlobe(this.zoom));
+        const cameraFrustum = Frustum.fromInvProjectionMatrix(this.invProjMatrix, this.worldSize, z, this.isGlobe());
 
         // No change of LOD behavior for pitch lower than 60 and when there is no top padding: return only tile ids from the requested zoom level
         let minZoom = options.minzoom || 0;
@@ -454,7 +454,7 @@ export class Transform {
         const maxZoom = z;
         const overscaledZ = options.reparseOverscaled ? actualZ : z;
 
-        if (!this.projection.isGlobe(this.zoom) && this._renderWorldCopies) {
+        if (!this.isGlobe() && this._renderWorldCopies) {
             // Render copy of the globe thrice on both sides
             for (let i = 1; i <= 3; i++) {
                 stack.push(newRootTile(-i));
@@ -508,7 +508,7 @@ export class Transform {
                 const childX = (x << 1) + (i % 2);
                 const childY = (y << 1) + (i >> 1);
                 const childZ = it.zoom + 1;
-                const quadrant = this.projection.isGlobe(this.zoom) ? this.createAabbFromTile(numTiles, childZ, childX, childY, it.wrap) : it.aabb.quadrant(i);
+                const quadrant = this.isGlobe() ? this.createAabbFromTile(numTiles, childZ, childX, childY, it.wrap) : it.aabb.quadrant(i);
                 /*
                 let quadrant = it.aabb.quadrant(i);
                 if (options.terrain) {
@@ -924,7 +924,7 @@ export class Transform {
         const topHalfMinDistance = Math.min(topHalfSurfaceDistance, topHalfSurfaceDistanceHorizon);
         let farZ = (Math.cos(Math.PI / 2 - this._pitch) * topHalfMinDistance + lowestPlane) * 1.01;
 
-        if (this.projection.isGlobe(this.zoom)) {
+        if (this.isGlobe()) {
             // farZ should be evaluated differently in Globe mode... for the moment, use a multiple of the earth Radius
             const worldSizeRadius = this.worldSize / (2.0 * Math.PI);
             farZ += worldSizeRadius / 2;
@@ -959,7 +959,7 @@ export class Transform {
 
         // scale vertically to meters per pixel (inverse of ground resolution):
         // (in globe mode, all coords use the same scale)
-        if (!this.projection.isGlobe(this.zoom)) {
+        if (!this.isGlobe()) {
             mat4.scale(m, m, [1, 1, this._pixelPerMeter]);
         }
         // matrix for conversion from world space to screen coordinates in 2D
@@ -1093,6 +1093,14 @@ export class Transform {
         mat4.rotateY(globeMatrix, globeMatrix, -this.center.lng * Math.PI / 180.0);
 
         return globeMatrix;
+    }
+
+    /**
+     * Return if the current projection use a globe mode.
+     * @returns true if globe mode active
+     */
+    isGlobe(): boolean {
+        return this.projection.isGlobe(this.zoom);
     }
 
 }

@@ -57,7 +57,6 @@ import terrainDepthFrag from './terrain_depth.fragment.glsl.g';
 import terrainCoordsFrag from './terrain_coords.fragment.glsl.g';
 import terrainFrag from './terrain.fragment.glsl.g';
 import terrainVert from './terrain.vertex.glsl.g';
-import globeFrag from './globe.fragment.glsl.g';
 import globeVert from './globe.vertex.glsl.g';
 
 export const shaders = {
@@ -90,7 +89,9 @@ export const shaders = {
     terrain: compile(terrainFrag, terrainVert),
     terrainDepth: compile(terrainDepthFrag, terrainVert),
     terrainCoords: compile(terrainCoordsFrag, terrainVert),
-    globe: compile(globeFrag, globeVert)
+    globe: compile(terrainFrag, globeVert),
+    globeDepth: compile(terrainDepthFrag, globeVert),
+    globeCoords: compile(terrainCoordsFrag, globeVert)
 };
 
 // Expand #pragmas to #ifdefs.

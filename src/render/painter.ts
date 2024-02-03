@@ -393,16 +393,6 @@ export class Painter {
                     drawCoords(this, this.style.map.terrain);
                 }
             }
-            // if (this.style.map.globe) {
-            //     const newTiles = this.style.map.globe.sourceCache.tilesAfterTime(this.terrainFacilitator.renderTime);
-            //     if (this.terrainFacilitator.dirty || !mat4.equals(this.terrainFacilitator.matrix, this.transform.projMatrix) || newTiles.length) {
-            //         mat4.copy(this.terrainFacilitator.matrix, this.transform.projMatrix);
-            //         this.terrainFacilitator.renderTime = Date.now();
-            //         this.terrainFacilitator.dirty = false;
-            //         drawDepth(this, this.style.map.terrain);
-            //         drawCoords(this, this.style.map.terrain);
-            //     }
-            // }
         }
 
         // Offscreen pass ===============================================
@@ -425,7 +415,7 @@ export class Painter {
         this.context.bindFramebuffer.set(null);
 
         // Clear buffers in preparation for drawing to the main framebuffer
-        const clearColor = this.transform.projection.isGlobe(this.transform.zoom) ? Color.black : Color.transparent;
+        const clearColor = this.transform.isGlobe() ? Color.black : Color.transparent;
         this.context.clear({color: options.showOverdrawInspector ? Color.black : clearColor, depth: 1});
         this.clearStencil();
 
@@ -462,7 +452,7 @@ export class Painter {
             // separate clipping masks
             const coords = (layer.type === 'symbol' ? coordsDescendingSymbol : coordsDescending)[layer.source];
 
-            if (this.transform.projection.isGlobe(this.transform.zoom) && this.transform.zoom < 9 && layer.type === 'symbol') continue;
+            if (this.transform.isGlobe() && this.transform.zoom < 9 && layer.type === 'symbol') continue;
 
             this._renderTileClippingMasks(layer, coordsAscending[layer.source]);
             this.renderLayer(this, sourceCache, layer, coords);

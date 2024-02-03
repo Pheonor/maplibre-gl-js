@@ -119,14 +119,6 @@ export class RenderToTexture {
         }
     }
 
-    draw(painter: Painter, tiles: Tile[]) {
-        if (painter.transform.projection.isGlobe(painter.transform.zoom)) {
-            drawGlobe(painter, this.terrain, tiles);
-        } else {
-            drawTerrain(painter, this.terrain, tiles);
-        }
-    }
-
     /**
      * due that switching textures is relatively slow, the render
      * layer-by-layer context is not practicable. To bypass this problem
@@ -162,7 +154,7 @@ export class RenderToTexture {
             for (const tile of this._renderableTiles) {
                 // if render pool is full draw current tiles to screen and free pool
                 if (this.pool.isFull()) {
-                    this.draw(this.painter, this._rttTiles);
+                    drawTerrain(this.painter, this.terrain, this._rttTiles);
                     this._rttTiles = [];
                     this.pool.freeAllObjects();
                 }
@@ -193,7 +185,7 @@ export class RenderToTexture {
                     if (layer.source) tile.rttCoords[layer.source] = this._coordsDescendingInvStr[layer.source][tile.tileID.key];
                 }
             }
-            this.draw(this.painter, this._rttTiles);
+            drawTerrain(this.painter, this.terrain, this._rttTiles);
             this._rttTiles = [];
             this.pool.freeAllObjects();
 

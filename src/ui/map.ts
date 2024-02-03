@@ -1989,7 +1989,7 @@ export class Map extends Camera {
         // clear event handlers
         if (this._terrainDataCallback) this.style.off('data', this._terrainDataCallback);
 
-        if (!options && !this.transform.projection.isGlobe(this.transform.zoom)) {
+        if (!options && !this.transform.isGlobe()) {
             // remove terrain or globe
             if (this.terrain) this.terrain.sourceCache.destruct();
             this.terrain = null;
@@ -3097,22 +3097,6 @@ export class Map extends Camera {
         if (this._removed) return;
 
         let crossFading = false;
-
-        // For Globe projection, activate a Terrain if needed
-        if (this.transform.projection.isGlobe(this.painter.transform.zoom)) {
-            // if (!this.terrain) {
-            //     // Configure a terrain to enforce 'drapping'
-            //     if (!this.getSource('terrainSource')) {
-            //         this.addSource('terrainSource', {
-            //             type: 'raster-dem',
-            //             url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
-            //             tileSize: 256
-            //         });
-            //     }
-            //     const terrainOptions = {source: 'terrainSource', exaggeration: 0};
-            //     this.setTerrain(terrainOptions);
-            // }
-        }
 
         // If the style has changed, the map is being zoomed, or a transition or fade is in progress:
         //  - Apply style changes (in a batch)
