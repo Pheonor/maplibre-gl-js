@@ -197,41 +197,6 @@ export class OverscaledTileID {
     getTilePoint(coord: MercatorCoordinate) {
         return this.canonical.getTilePoint(new MercatorCoordinate(coord.x - this.wrap, coord.y));
     }
-
-    getTileMatrix(): mat4 {
-        // Improvement: Use a cache to avoid computing it each time
-
-        // Get 4 (lon, lat) corners coordinates
-        // - Retrieve corner in x, y, z coordinates and convert to 2D (x, y) coordinates
-        const z = this.canonical.z;
-        const scale = Math.pow(2, -z);
-        const x1 = this.canonical.x * scale;
-        const x2 = (this.canonical.x + 1) * scale;
-        const y1 = this.canonical.y * scale;
-        const y2 = (this.canonical.y + 1) * scale;
-        // - Convert in (lon, lat) coordinates
-        const west = lngFromMercatorX(x1);
-        const east = lngFromMercatorX(x2);
-        const north = latFromMercatorY(y1);
-        const south = latFromMercatorY(y2);
-
-        // Get tile size
-        const tileWidth = east - west;
-        const tileHeight = north - south;
-
-        // Compute scale factor between tile coordinates and lon/lat coordinates
-        const tileXToLng = tileWidth / EXTENT;
-        const tileYToLat = -tileHeight / EXTENT;
-
-        // Compute matrix to transform tile point (x,y) into (lat,lng) coordinates
-        const tileMatrix = new Float64Array(16) as any;
-        tileMatrix[1] = tileXToLng;
-        tileMatrix[4] = tileYToLat;
-        tileMatrix[12] = north;
-        tileMatrix[13] = west;
-
-        return tileMatrix;
-    }
 }
 
 function calculateKey(wrap: number, overscaledZ: number, z: number, x: number, y: number): string {

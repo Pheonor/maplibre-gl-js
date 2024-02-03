@@ -31,7 +31,7 @@ function drawDepth(painter: Painter, terrain: Terrain) {
         const terrainData = terrain.getTerrainData(tile.tileID);
         if (isGlobe) {
             const globeMatrix = painter.transform.getGlobeMatrix();
-            const tileMatrix = tile.tileID.getTileMatrix();
+            const tileMatrix = painter.transform.calculateTileMatrix(tile.tileID);
             const tileCoords = vec3.fromValues(Math.pow(2, tile.tileID.canonical.z), tile.tileID.canonical.x, tile.tileID.canonical.y);
 
             const uniformValues = globeDepthUniformValues(painter.transform.projMatrix, tileMatrix, globeMatrix, tileCoords, terrain.getMeshFrameDelta(painter.transform.zoom));
@@ -74,7 +74,7 @@ function drawCoords(painter: Painter, terrain: Terrain) {
         gl.bindTexture(gl.TEXTURE_2D, coords.texture);
         if (isGlobe) {
             const globeMatrix = painter.transform.getGlobeMatrix();
-            const tileMatrix = tile.tileID.getTileMatrix();
+            const tileMatrix = painter.transform.calculateTileMatrix(tile.tileID);
             const tileCoords = vec3.fromValues(Math.pow(2, tile.tileID.canonical.z), tile.tileID.canonical.x, tile.tileID.canonical.y);
 
             const uniformValues = globeCoordsUniformValues(painter.transform.projMatrix, tileMatrix, globeMatrix, tileCoords, 255 - terrain.coordsIndex.length, terrain.getMeshFrameDelta(painter.transform.zoom));
@@ -111,7 +111,7 @@ function drawTerrain(painter: Painter, terrain: Terrain, tiles: Array<Tile>) {
 
         if (isGlobe) {
             const globeMatrix = painter.transform.getGlobeMatrix();
-            const tileMatrix = tile.tileID.getTileMatrix();
+            const tileMatrix = painter.transform.calculateTileMatrix(tile.tileID);
             const tileCoords = vec3.fromValues(Math.pow(2, tile.tileID.canonical.z), tile.tileID.canonical.x, tile.tileID.canonical.y);
 
             const uniformValues = globeUniformValues(painter.transform.projMatrix, tileMatrix, globeMatrix, tileCoords);

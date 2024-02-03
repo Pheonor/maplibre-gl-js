@@ -70,6 +70,7 @@ export class Transform {
     _alignedPosMatrixCache: {[_: string]: mat4};
     _projection: Projection;
     globeMatrix: mat4;
+    _tileMatrixCache: {[_: string]: mat4};
 
     constructor(minZoom?: number, maxZoom?: number, minPitch?: number, maxPitch?: number, renderWorldCopies?: boolean, projection?: string) {
         this.tileSize = 512; // constant
@@ -97,6 +98,7 @@ export class Transform {
         this._posMatrixCache = {};
         this._alignedPosMatrixCache = {};
         this.minElevationForCurrentTile = 0;
+        this._tileMatrixCache = {};
 
         this._projection = projection === undefined ? new Mercator() : getProjectionFromName(projection);
     }
@@ -793,6 +795,45 @@ export class Transform {
         return cache[posMatrixKey];
     }
 
+    calculateTileMatrix(overscaledTileID: OverscaledTileID): mat4 {
+        const tileMatrixKey = overscaledTileID.key;
+        if (this._tileMatrixCache[tileMatrixKey]) {
+            return this._tileMatrixCache[tileMatrixKey];
+        }
+
+        // Get 4 (lon, lat) corners coordinates
+        // - Retrieve corner in x, y, z coordinates and convert to 2D (x, y) coordinates
+        const z = overscaledTileID.canonical.z;
+        const scale = Math.pow(2, -z);
+        const x1 = overscaledTileID.canonical.x * scale;
+        const x2 = (overscaledTileID.canonical.x + 1) * scale;
+        const y1 = overscaledTileID.canonical.y * scale;
+        const y2 = (overscaledTileID.canonical.y + 1) * scale;
+        // - Convert in (lon, lat) coordinates
+        const west = lngFromMercatorX(x1);
+        const east = lngFromMercatorX(x2);
+        const north = latFromMercatorY(y1);
+        const south = latFromMercatorY(y2);
+
+        // Get tile size
+        const tileWidth = east - west;
+        const tileHeight = north - south;
+
+        // Compute scale factor between tile coordinates and lon/lat coordinates
+        const tileXToLng = tileWidth / EXTENT;
+        const tileYToLat = -tileHeight / EXTENT;
+
+        // Compute matrix to transform tile point (x,y) into (lat,lng) coordinates
+        const tileMatrix = new Float64Array(16) as any;
+        tileMatrix[1] = tileXToLng;
+        tileMatrix[4] = tileYToLat;
+        tileMatrix[12] = north;
+        tileMatrix[13] = west;
+
+        this._tileMatrixCache[tileMatrixKey] = new Float32Array(tileMatrix);
+        return this._tileMatrixCache[tileMatrixKey];
+    }
+
     customLayerMatrix(): mat4 {
         return this.mercatorMatrix.slice() as any;
     }
@@ -1016,6 +1057,7 @@ export class Transform {
 
         this._posMatrixCache = {};
         this._alignedPosMatrixCache = {};
+        this._tileMatrixCache = {};
     }
 
     maxPitchScaleFactor() {
