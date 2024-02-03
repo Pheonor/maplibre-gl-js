@@ -50,7 +50,7 @@ export class TerrainSourceCache extends Evented {
      */
     deltaZoom: number;
 
-    constructor(sourceCache: SourceCache) {
+    constructor(sourceCache?: SourceCache) {
         super();
         this.sourceCache = sourceCache;
         this._tiles = {};
@@ -60,13 +60,17 @@ export class TerrainSourceCache extends Evented {
         this.maxzoom = 22;
         this.tileSize = 512;
         this.deltaZoom = 1;
-        sourceCache.usedForTerrain = true;
-        sourceCache.tileSize = this.tileSize * 2 ** this.deltaZoom;
+        if (sourceCache) {
+            sourceCache.usedForTerrain = true;
+            sourceCache.tileSize = this.tileSize * 2 ** this.deltaZoom;
+        }
     }
 
     destruct() {
-        this.sourceCache.usedForTerrain = false;
-        this.sourceCache.tileSize = null;
+        if (this.sourceCache) {
+            this.sourceCache.usedForTerrain = false;
+            this.sourceCache.tileSize = null;
+        }
     }
 
     /**
@@ -74,9 +78,11 @@ export class TerrainSourceCache extends Evented {
      * @param transform - the operation to do
      * @param terrain - the terrain
      */
-    update(transform: Transform, terrain: Terrain): void {
-        // load raster-dem tiles for the current scene.
-        this.sourceCache.update(transform, terrain);
+    update(transform: Transform, terrain?: Terrain): void {
+        if (this.sourceCache && terrain) {
+            // load raster-dem tiles for the current scene.
+            this.sourceCache.update(transform, terrain);
+        }
         // create internal render-to-texture tiles for the current scene.
         this._renderableTilesKeys = [];
         const keys = {};
@@ -177,6 +183,9 @@ export class TerrainSourceCache extends Evented {
      * @returns the tile
      */
     getSourceTile(tileID: OverscaledTileID, searchForDEM?: boolean): Tile {
+        if (!this.sourceCache)
+            return null;
+
         const source = this.sourceCache._source;
         let z = tileID.overscaledZ - this.deltaZoom;
         if (z > source.maxzoom) z = source.maxzoom;

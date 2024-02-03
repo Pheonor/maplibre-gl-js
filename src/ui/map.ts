@@ -3179,7 +3179,7 @@ export class Map extends Camera {
 
         // update globe stuff
         if (this.globe) {
-            this.globe.sourceCache.update(this.transform, this.globe);
+            this.globe.sourceCache.update(this.transform);
         }
 
         this._placementDirty = this.style && this.style._updatePlacement(this.painter.transform, this.showCollisionBoxes, fadeDuration, this._crossSourceCollisions);

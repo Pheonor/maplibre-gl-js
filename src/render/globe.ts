@@ -5,12 +5,12 @@ import {VertexBuffer} from '../gl/vertex_buffer';
 import {IndexBuffer} from '../gl/index_buffer';
 import {Painter} from './painter';
 import {EXTENT} from '../data/extent';
-import {GlobeSourceCache} from '../source/globe_source_cache';
 import {Texture} from './texture';
 import {mat4} from 'gl-matrix';
 import {OverscaledTileID} from '../source/tile_id';
 import {TerrainData} from './terrain';
 import {RGBAImage} from '../util/image';
+import {TerrainSourceCache} from '../source/terrain_source_cache';
 
 /**
  * @internal
@@ -30,7 +30,7 @@ export class Globe {
     /**
      * the sourcecache this globe is based on
      */
-    sourceCache: GlobeSourceCache;
+    sourceCache: TerrainSourceCache;
     /**
      * define the meshSize per tile.
      */
@@ -58,7 +58,7 @@ export class Globe {
     _emptyDemMatrix: mat4;
 
     constructor(painter: Painter) {
-        this.sourceCache = new GlobeSourceCache();
+        this.sourceCache = new TerrainSourceCache();
         this.painter = painter;
         this.qualityFactor = 2;
         this.meshSize = 128;
@@ -115,7 +115,7 @@ export class Globe {
      * @param tileID - the tile to get the terrain for
      * @returns the terrain data to use in the program
      */
-    getTerrainData(tileID: OverscaledTileID): TerrainData {
+    getTerrainData(_tileID: OverscaledTileID): TerrainData {
         // create empty DEM Objects, which will used while raster-dem tiles are loading.
         // creates an empty depth-buffer texture which is needed, during the initialization process of the 3d mesh..
         if (!this._emptyDemTexture) {
