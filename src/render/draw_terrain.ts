@@ -1,7 +1,7 @@
 import {StencilMode} from '../gl/stencil_mode';
 import {DepthMode} from '../gl/depth_mode';
 import {terrainUniformValues, terrainDepthUniformValues, terrainCoordsUniformValues} from './program/terrain_program';
-import {globeUniformValues} from './program/globe_program';
+import {globeCoordsUniformValues, globeDepthUniformValues, globeUniformValues} from './program/globe_program';
 import type {Painter} from './painter';
 import type {Tile} from '../source/tile';
 import {CullFaceMode} from '../gl/cull_face_mode';
@@ -22,15 +22,26 @@ function drawDepth(painter: Painter, terrain: Terrain) {
     const depthMode = new DepthMode(gl.LEQUAL, DepthMode.ReadWrite, [0, 1]);
     const mesh = terrain.getTerrainMesh();
     const tiles = terrain.sourceCache.getRenderableTiles();
-    const program = painter.useProgram('terrainDepth');
+    const isGlobe = false; // Too slow in globe mode painter.transform.isGlobe();
+    const program = isGlobe ? painter.useProgram('globeDepth') : painter.useProgram('terrainDepth');
     context.bindFramebuffer.set(terrain.getFramebuffer('depth').framebuffer);
     context.viewport.set([0, 0, painter.width  / devicePixelRatio, painter.height / devicePixelRatio]);
     context.clear({color: Color.transparent, depth: 1});
     for (const tile of tiles) {
         const terrainData = terrain.getTerrainData(tile.tileID);
-        const posMatrix = painter.transform.calculatePosMatrix(tile.tileID.toUnwrapped());
-        const uniformValues = terrainDepthUniformValues(posMatrix, terrain.getMeshFrameDelta(painter.transform.zoom));
-        program.draw(context, gl.TRIANGLES, depthMode, StencilMode.disabled, colorMode, CullFaceMode.backCCW, uniformValues, terrainData, 'terrain', mesh.vertexBuffer, mesh.indexBuffer, mesh.segments);
+        if (isGlobe) {
+            const globeMatrix = painter.transform.getGlobeMatrix();
+            const tileMatrix = tile.tileID.getTileMatrix();
+            const tileCoords = vec3.fromValues(Math.pow(2, tile.tileID.canonical.z), tile.tileID.canonical.x, tile.tileID.canonical.y);
+
+            const uniformValues = globeDepthUniformValues(painter.transform.projMatrix, tileMatrix, globeMatrix, tileCoords, terrain.getMeshFrameDelta(painter.transform.zoom));
+            program.draw(context, gl.TRIANGLES, depthMode, StencilMode.disabled, colorMode, CullFaceMode.backCCW, uniformValues, terrainData, 'terrain', mesh.vertexBuffer, mesh.indexBuffer, mesh.segments);
+        } else {
+            const posMatrix = painter.transform.calculatePosMatrix(tile.tileID.toUnwrapped());
+
+            const uniformValues = terrainDepthUniformValues(posMatrix, terrain.getMeshFrameDelta(painter.transform.zoom));
+            program.draw(context, gl.TRIANGLES, depthMode, StencilMode.disabled, colorMode, CullFaceMode.backCCW, uniformValues, terrainData, 'terrain', mesh.vertexBuffer, mesh.indexBuffer, mesh.segments);
+        }
     }
     context.bindFramebuffer.set(null);
     context.viewport.set([0, 0, painter.width, painter.height]);
@@ -51,7 +62,8 @@ function drawCoords(painter: Painter, terrain: Terrain) {
     const tiles = terrain.sourceCache.getRenderableTiles();
 
     // draw tile-coords into framebuffer
-    const program = painter.useProgram('terrainCoords');
+    const isGlobe = false; // Too slow in globe mode painter.transform.isGlobe();
+    const program = isGlobe ? painter.useProgram('globeCoords') : painter.useProgram('terrainCoords');
     context.bindFramebuffer.set(terrain.getFramebuffer('coords').framebuffer);
     context.viewport.set([0, 0, painter.width  / devicePixelRatio, painter.height / devicePixelRatio]);
     context.clear({color: Color.transparent, depth: 1});
@@ -60,9 +72,19 @@ function drawCoords(painter: Painter, terrain: Terrain) {
         const terrainData = terrain.getTerrainData(tile.tileID);
         context.activeTexture.set(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, coords.texture);
-        const posMatrix = painter.transform.calculatePosMatrix(tile.tileID.toUnwrapped());
-        const uniformValues = terrainCoordsUniformValues(posMatrix, 255 - terrain.coordsIndex.length, terrain.getMeshFrameDelta(painter.transform.zoom));
-        program.draw(context, gl.TRIANGLES, depthMode, StencilMode.disabled, colorMode, CullFaceMode.backCCW, uniformValues, terrainData, 'terrain', mesh.vertexBuffer, mesh.indexBuffer, mesh.segments);
+        if (isGlobe) {
+            const globeMatrix = painter.transform.getGlobeMatrix();
+            const tileMatrix = tile.tileID.getTileMatrix();
+            const tileCoords = vec3.fromValues(Math.pow(2, tile.tileID.canonical.z), tile.tileID.canonical.x, tile.tileID.canonical.y);
+
+            const uniformValues = globeCoordsUniformValues(painter.transform.projMatrix, tileMatrix, globeMatrix, tileCoords, 255 - terrain.coordsIndex.length, terrain.getMeshFrameDelta(painter.transform.zoom));
+            program.draw(context, gl.TRIANGLES, depthMode, StencilMode.disabled, colorMode, CullFaceMode.backCCW, uniformValues, terrainData, 'terrain', mesh.vertexBuffer, mesh.indexBuffer, mesh.segments);
+        } else {
+            const posMatrix = painter.transform.calculatePosMatrix(tile.tileID.toUnwrapped());
+
+            const uniformValues = terrainCoordsUniformValues(posMatrix, 255 - terrain.coordsIndex.length, terrain.getMeshFrameDelta(painter.transform.zoom));
+            program.draw(context, gl.TRIANGLES, depthMode, StencilMode.disabled, colorMode, CullFaceMode.backCCW, uniformValues, terrainData, 'terrain', mesh.vertexBuffer, mesh.indexBuffer, mesh.segments);
+        }
         terrain.coordsIndex.push(tile.tileID.key);
     }
     context.bindFramebuffer.set(null);
@@ -74,7 +96,8 @@ function drawTerrain(painter: Painter, terrain: Terrain, tiles: Array<Tile>) {
     const gl = context.gl;
     const colorMode = painter.colorModeForRenderPass();
     const depthMode = new DepthMode(gl.LEQUAL, DepthMode.ReadWrite, painter.depthRangeFor3D);
-    const program = painter.transform.isGlobe() ? painter.useProgram('globe') : painter.useProgram('terrain');
+    const isGlobe = painter.transform.isGlobe();
+    const program = isGlobe ? painter.useProgram('globe') : painter.useProgram('terrain');
     const mesh = terrain.getTerrainMesh();
 
     context.bindFramebuffer.set(null);
@@ -86,15 +109,16 @@ function drawTerrain(painter: Painter, terrain: Terrain, tiles: Array<Tile>) {
         context.activeTexture.set(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture.texture);
 
-        if (painter.transform.isGlobe()) {
+        if (isGlobe) {
             const globeMatrix = painter.transform.getGlobeMatrix();
             const tileMatrix = tile.tileID.getTileMatrix();
             const tileCoords = vec3.fromValues(Math.pow(2, tile.tileID.canonical.z), tile.tileID.canonical.x, tile.tileID.canonical.y);
 
             const uniformValues = globeUniformValues(painter.transform.projMatrix, tileMatrix, globeMatrix, tileCoords);
-            program.draw(context, gl.TRIANGLES, depthMode, StencilMode.disabled, colorMode, CullFaceMode.backCCW, uniformValues, null, 'globe', mesh.vertexBuffer, mesh.indexBuffer, mesh.segments);
+            program.draw(context, gl.TRIANGLES, depthMode, StencilMode.disabled, colorMode, CullFaceMode.backCCW, uniformValues, terrainData, 'terrain', mesh.vertexBuffer, mesh.indexBuffer, mesh.segments);
         } else {
             const posMatrix = painter.transform.calculatePosMatrix(tile.tileID.toUnwrapped());
+
             const uniformValues = terrainUniformValues(posMatrix, terrain.getMeshFrameDelta(painter.transform.zoom));
             program.draw(context, gl.TRIANGLES, depthMode, StencilMode.disabled, colorMode, CullFaceMode.backCCW, uniformValues, terrainData, 'terrain', mesh.vertexBuffer, mesh.indexBuffer, mesh.segments);
         }

@@ -69,6 +69,7 @@ export class Transform {
     _posMatrixCache: {[_: string]: mat4};
     _alignedPosMatrixCache: {[_: string]: mat4};
     _projection: Projection;
+    globeMatrix: mat4;
 
     constructor(minZoom?: number, maxZoom?: number, minPitch?: number, maxPitch?: number, renderWorldCopies?: boolean, projection?: string) {
         this.tileSize = 512; // constant
@@ -992,6 +993,27 @@ export class Transform {
         if (!m) throw new Error('failed to invert matrix');
         this.pixelMatrixInverse = m;
 
+        // Compute Globe matrix
+        if (this.isGlobe()) {
+            // Scale from globe to world (could be simplified, but for clarity, we kept the 2.PI parts)
+            const globeRadius = EXTENT / (2.0 * Math.PI);
+            const worldSizeRadius = this.worldSize / (2.0 * Math.PI);
+            const scale = worldSizeRadius / globeRadius;
+
+            // Offset due to projection
+            const projectedCenter = this.project(this.center);
+            const offset = vec3.fromValues(projectedCenter.x, projectedCenter.y, -worldSizeRadius);
+
+            // Matrix with projection offset, globe to world scale, rotation for lat, rotation for lng
+            const gm = mat4.identity(new Float64Array(16) as any);
+            mat4.translate(gm, gm, offset);
+            mat4.scale(gm, gm, [scale, scale, scale]);
+            mat4.rotateX(gm, gm, -this.center.lat * Math.PI / 180.0);
+            mat4.rotateY(gm, gm, -this.center.lng * Math.PI / 180.0);
+
+            this.globeMatrix = gm;
+        }
+
         this._posMatrixCache = {};
         this._alignedPosMatrixCache = {};
     }
@@ -1074,25 +1096,7 @@ export class Transform {
     }
 
     getGlobeMatrix(): mat4 {
-        // Improvement: Use a cache to avoid computing it each time
-
-        // Scale from globe to world (could be simplified, but for clarity, we kept the 2.PI parts)
-        const globeRadius = EXTENT / (2.0 * Math.PI);
-        const worldSizeRadius = this.worldSize / (2.0 * Math.PI);
-        const scale = worldSizeRadius / globeRadius;
-
-        // Offset due to projection
-        const projectedCenter = this.project(this.center);
-        const offset = vec3.fromValues(projectedCenter.x, projectedCenter.y, -worldSizeRadius);
-
-        // Matrix with projection offset, globe to world scale, rotation for lat, rotation for lng
-        const globeMatrix = mat4.identity(new Float64Array(16) as any);
-        mat4.translate(globeMatrix, globeMatrix, offset);
-        mat4.scale(globeMatrix, globeMatrix, [scale, scale, scale]);
-        mat4.rotateX(globeMatrix, globeMatrix, -this.center.lat * Math.PI / 180.0);
-        mat4.rotateY(globeMatrix, globeMatrix, -this.center.lng * Math.PI / 180.0);
-
-        return globeMatrix;
+        return this.globeMatrix;
     }
 
     /**
