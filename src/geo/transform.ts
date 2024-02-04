@@ -32,6 +32,8 @@ function getProjectionFromName(projectionName: string): Projection {
 export class Transform {
     tileSize: number;
     tileZoom: number;
+    globeRadius: number;
+    earthRadius: number;
     lngRange: [number, number];
     latRange: [number, number];
     maxValidLatitude: number;
@@ -75,6 +77,8 @@ export class Transform {
     constructor(minZoom?: number, maxZoom?: number, minPitch?: number, maxPitch?: number, renderWorldCopies?: boolean, projection?: string) {
         this.tileSize = 512; // constant
         this.maxValidLatitude = 85.051129; // constant
+        this.globeRadius = EXTENT / (2.0 * Math.PI); // constant
+        this.earthRadius = 6371e3; // constant
 
         this._renderWorldCopies = renderWorldCopies === undefined ? true : !!renderWorldCopies;
         this._minZoom = minZoom || 0;
@@ -241,6 +245,14 @@ export class Transform {
         this._elevation = elevation;
         this._constrain();
         this._calcMatrices();
+    }
+
+    calculateCorrectedElevation(elevation: number): number {
+        if (this.isGlobe()) {
+            const scale = this.globeRadius / this.earthRadius;
+            return elevation * scale;
+        }
+        return elevation;
     }
 
     get padding(): PaddingOptions { return this._edgeInsets.toJSON(); }
@@ -439,7 +451,7 @@ export class Transform {
             minZoom = z;
 
         // There should always be a certain number of maximum zoom level tiles surrounding the center location in 2D or in front of the camera in 3D
-        const radiusOfMaxLvlLodInTiles = options.terrain ? 2 / Math.min(this.tileSize, options.tileSize) * this.tileSize : 3;
+        const radiusOfMaxLvlLodInTiles = this.isGlobe() ? 1 : (options.terrain ? 2 / Math.min(this.tileSize, options.tileSize) * this.tileSize : 3);
 
         const newRootTile = (wrap: number): any => {
             return {
@@ -484,7 +496,7 @@ export class Transform {
                 fullyVisible = intersectResult === 2;
             }
 
-            const refPoint = options.terrain ? cameraPoint : centerPoint;
+            const refPoint = this.isGlobe() ? centerPoint : (options.terrain ? cameraPoint : centerPoint);
             const distanceX = it.aabb.distanceX(refPoint);
             const distanceY = it.aabb.distanceY(refPoint);
             const longestDim = Math.max(Math.abs(distanceX), Math.abs(distanceY));
@@ -580,7 +592,7 @@ export class Transform {
     } {
         const lngLat = this.pointLocation(this.getCameraPoint());
         const altitude = Math.cos(this._pitch) * this.cameraToCenterDistance / this._pixelPerMeter;
-        return {lngLat, altitude: altitude + this.elevation};
+        return {lngLat, altitude: altitude + this.calculateCorrectedElevation(this.elevation)};
     }
 
     /**
@@ -599,7 +611,7 @@ export class Transform {
         // calculate mercator distance between camera & target
         const cameraPosition = this.getCameraPosition();
         const camera = MercatorCoordinate.fromLngLat(cameraPosition.lngLat, cameraPosition.altitude);
-        const target = MercatorCoordinate.fromLngLat(center, elevation);
+        const target = MercatorCoordinate.fromLngLat(center, this.calculateCorrectedElevation(elevation));
         const dx = camera.x - target.x, dy = camera.y - target.y, dz = camera.z - target.z;
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
@@ -948,7 +960,7 @@ export class Transform {
         // Calculate the camera to sea-level distance in pixel in respect of terrain
         const cameraToSeaLevelDistance = this.cameraToCenterDistance + this._elevation * this._pixelPerMeter / Math.cos(this._pitch);
         // In case of negative minimum elevation (e.g. the dead see, under the sea maps) use a lower plane for calculation
-        const minElevation = Math.min(this.elevation, this.minElevationForCurrentTile);
+        const minElevation = this.calculateCorrectedElevation(Math.min(this.elevation, this.minElevationForCurrentTile));
         const cameraToLowestPointDistance = cameraToSeaLevelDistance - minElevation * this._pixelPerMeter / Math.cos(this._pitch);
         const lowestPlane = minElevation < 0 ? cameraToLowestPointDistance : cameraToSeaLevelDistance;
 
@@ -1013,14 +1025,7 @@ export class Transform {
         this.pixelMatrix = mat4.multiply(new Float64Array(16) as any, this.labelPlaneMatrix, m);
 
         // matrix for conversion from world space to clip space (-1 .. 1)
-        let elevation = this.elevation;
-        if (this.isGlobe()) {
-            const globeRadius = EXTENT / (2.0 * Math.PI);
-            const earthRadius = 6371e3;
-            const scale = earthRadius / globeRadius;
-            elevation /= scale;
-        }
-        mat4.translate(m, m, [0, 0, -elevation]); // elevate camera over terrain
+        mat4.translate(m, m, [0, 0, -this.calculateCorrectedElevation(this.elevation)]); // elevate camera over terrain
         this.projMatrix = m;
         this.invProjMatrix = mat4.invert([] as any, m);
 
