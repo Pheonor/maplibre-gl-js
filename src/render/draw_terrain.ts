@@ -22,7 +22,7 @@ function drawDepth(painter: Painter, terrain: Terrain) {
     const depthMode = new DepthMode(gl.LEQUAL, DepthMode.ReadWrite, [0, 1]);
     const mesh = terrain.getTerrainMesh();
     const tiles = terrain.sourceCache.getRenderableTiles();
-    const isGlobe = false; // Too slow in globe mode painter.transform.isGlobe();
+    const isGlobe = painter.transform.isGlobe();
     const program = isGlobe ? painter.useProgram('globeDepth') : painter.useProgram('terrainDepth');
     context.bindFramebuffer.set(terrain.getFramebuffer('depth').framebuffer);
     context.viewport.set([0, 0, painter.width  / devicePixelRatio, painter.height / devicePixelRatio]);
@@ -62,7 +62,7 @@ function drawCoords(painter: Painter, terrain: Terrain) {
     const tiles = terrain.sourceCache.getRenderableTiles();
 
     // draw tile-coords into framebuffer
-    const isGlobe = false; // Too slow in globe mode painter.transform.isGlobe();
+    const isGlobe = painter.transform.isGlobe();
     const program = isGlobe ? painter.useProgram('globeCoords') : painter.useProgram('terrainCoords');
     context.bindFramebuffer.set(terrain.getFramebuffer('coords').framebuffer);
     context.viewport.set([0, 0, painter.width  / devicePixelRatio, painter.height / devicePixelRatio]);
