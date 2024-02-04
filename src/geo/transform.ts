@@ -256,6 +256,7 @@ export class Transform {
     set projection(projectionName: string) {
         if (this._projection.name === projectionName) return;
         this._projection = getProjectionFromName(projectionName);
+        this._calcMatrices();
     }
 
     /**
@@ -1012,7 +1013,14 @@ export class Transform {
         this.pixelMatrix = mat4.multiply(new Float64Array(16) as any, this.labelPlaneMatrix, m);
 
         // matrix for conversion from world space to clip space (-1 .. 1)
-        mat4.translate(m, m, [0, 0, -this.elevation]); // elevate camera over terrain
+        let elevation = this.elevation;
+        if (this.isGlobe()) {
+            const globeRadius = EXTENT / (2.0 * Math.PI);
+            const earthRadius = 6371e3;
+            const scale = earthRadius / globeRadius;
+            elevation /= scale;
+        }
+        mat4.translate(m, m, [0, 0, -elevation]); // elevate camera over terrain
         this.projMatrix = m;
         this.invProjMatrix = mat4.invert([] as any, m);
 

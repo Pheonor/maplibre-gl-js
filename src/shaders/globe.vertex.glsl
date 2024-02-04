@@ -1,6 +1,7 @@
 in vec3 a_pos3d;
 
 uniform mat4 u_matrix;
+uniform float u_ele_delta;
 uniform mat4 u_tile_matrix;
 uniform mat4 u_globe_matrix;
 uniform vec3 u_tile_coords;
@@ -12,6 +13,9 @@ out float v_depth;
 
 // EXTENT should be same value as in TypeScript part (extent.ts)
 #define EXTENT 8192.0
+
+// Radius of the planet
+#define EARTH_RADIUS 6371e3
 
 // As a Tile could cover the whole Earth, EXTENT is the perimeter, so the radius is perimeter / (2.PI)
 #define GLOBE_RADIUS EXTENT / PI / 2.0
@@ -59,6 +63,16 @@ void main() {
 
     // Convert to 3D position on Globe
     vec3 globe_pos = latLngToGlobePos(lat_lng.xy);
+
+    // Delta elevation on tile boundaries
+    float ele_delta = a_pos3d.z == 1.0 ? u_ele_delta : 0.0;
+    // Retrieve elevation
+    float elevation = get_elevation(a_pos3d.xy) - ele_delta;
+
+    // Compute normal vector (for a spherical Earth, normal is equivalent to normalized position)
+    vec3 normal = normalize(globe_pos);
+    globe_pos += normal * elevation * GLOBE_RADIUS / EARTH_RADIUS;
+
     // And apply current Globe orientation (center, zoom, pitch and bearing)
     vec4 globe_pos_world  = u_globe_matrix * vec4(globe_pos, 1);
 

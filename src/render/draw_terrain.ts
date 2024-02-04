@@ -114,7 +114,7 @@ function drawTerrain(painter: Painter, terrain: Terrain, tiles: Array<Tile>) {
             const tileMatrix = painter.transform.calculateTileMatrix(tile.tileID);
             const tileCoords = vec3.fromValues(Math.pow(2, tile.tileID.canonical.z), tile.tileID.canonical.x, tile.tileID.canonical.y);
 
-            const uniformValues = globeUniformValues(painter.transform.projMatrix, tileMatrix, globeMatrix, tileCoords);
+            const uniformValues = globeUniformValues(painter.transform.projMatrix, terrain.getMeshFrameDelta(painter.transform.zoom), tileMatrix, globeMatrix, tileCoords);
             program.draw(context, gl.TRIANGLES, depthMode, StencilMode.disabled, colorMode, CullFaceMode.backCCW, uniformValues, terrainData, 'terrain', mesh.vertexBuffer, mesh.indexBuffer, mesh.segments);
         } else {
             const posMatrix = painter.transform.calculatePosMatrix(tile.tileID.toUnwrapped());

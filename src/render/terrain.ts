@@ -419,7 +419,7 @@ export class Terrain {
      */
     getMeshFrameDelta(zoom: number): number {
         // divide by 5 is evaluated by trial & error to get a frame in the right height
-        return 2 * Math.PI * earthRadius / Math.pow(2, zoom) / 5;
+        return this.painter.transform.isGlobe() ? EXTENT / 5 : 2 * Math.PI * earthRadius / Math.pow(2, zoom) / 5;
     }
 
     getMinTileElevationForLngLatZoom(lnglat: LngLat, zoom: number) {
