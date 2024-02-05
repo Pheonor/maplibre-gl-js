@@ -67,11 +67,11 @@ void main() {
     // Delta elevation on tile boundaries
     float ele_delta = a_pos3d.z == 1.0 ? u_ele_delta : 0.0;
     // Retrieve elevation
-    float elevation = get_elevation(a_pos3d.xy) - ele_delta;
+    float elevation = get_elevation(a_pos3d.xy) * GLOBE_RADIUS / EARTH_RADIUS - ele_delta;
 
     // Compute normal vector (for a spherical Earth, normal is equivalent to normalized position)
     vec3 normal = normalize(globe_pos);
-    globe_pos += normal * elevation * GLOBE_RADIUS / EARTH_RADIUS;
+    globe_pos += normal * elevation;
 
     // And apply current Globe orientation (center, zoom, pitch and bearing)
     vec4 globe_pos_world  = u_globe_matrix * vec4(globe_pos, 1);
