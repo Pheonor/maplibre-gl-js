@@ -985,8 +985,10 @@ export class Transform {
 
         if (this.isGlobe()) {
             // farZ should be evaluated differently in Globe mode... for the moment, use a multiple of the earth Radius
+            // We need to extend at zoom=0 for radius / 2
+            // We need to extend at max zoom for almost 0
             const worldSizeRadius = this.worldSize / (2.0 * Math.PI);
-            farZ += worldSizeRadius / 2;
+            farZ += worldSizeRadius / Math.max(2, this.zoom - 5);
         }
 
         // The larger the value of nearZ is
