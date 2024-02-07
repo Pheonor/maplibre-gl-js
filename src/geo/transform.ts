@@ -813,7 +813,7 @@ export class Transform {
      * @param overscaledTileID - the tile ID
      */
     calculateTileMatrix(overscaledTileID: OverscaledTileID): mat4 {
-        const tileMatrixKey = overscaledTileID.key;
+        const tileMatrixKey = overscaledTileID.canonical.key;
         if (this._tileMatrixCache[tileMatrixKey]) {
             return this._tileMatrixCache[tileMatrixKey];
         }
@@ -829,8 +829,8 @@ export class Transform {
         // - Convert in (lon, lat) coordinates
         const west = lngFromMercatorX(x1);
         const east = lngFromMercatorX(x2);
-        const north = latFromMercatorY(y1);
-        const south = latFromMercatorY(y2);
+        const south = latFromMercatorY(y1);
+        const north = latFromMercatorY(y2);
 
         // Get tile size
         const tileWidth = east - west;
@@ -838,13 +838,13 @@ export class Transform {
 
         // Compute scale factor between tile coordinates and lon/lat coordinates
         const tileXToLng = tileWidth / EXTENT;
-        const tileYToLat = -tileHeight / EXTENT;
+        const tileYToLat = tileHeight / EXTENT;
 
         // Compute matrix to transform tile point (x,y) into (lat,lng) coordinates
         const tileMatrix = new Float64Array(16) as any;
         tileMatrix[1] = tileXToLng;
         tileMatrix[4] = tileYToLat;
-        tileMatrix[12] = north;
+        tileMatrix[12] = south;
         tileMatrix[13] = west;
 
         this._tileMatrixCache[tileMatrixKey] = new Float32Array(tileMatrix);

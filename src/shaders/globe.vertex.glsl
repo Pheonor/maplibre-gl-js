@@ -52,14 +52,14 @@ void main() {
     vec4 lat_lng = u_tile_matrix * vec4(a_pos3d.xy, 0, 1);
 
     // Compute 2D mercator position
-    float mercator_y = mercatorYfromLat(lat_lng[0]);
-    float mercator_x = mercatorXfromLng(lat_lng[1]);
+    float mercator_y = mercatorYfromLat(lat_lng.x);
+    float mercator_x = mercatorXfromLng(lat_lng.y);
     
     // Fill pole hole by extending mercator boundary to 90°
-    if (lat_lng[0] > 85.0)
-        lat_lng[0] = 90.0;
-    if (lat_lng[0] < -85.0)
-        lat_lng[0] = -90.0;
+    if (lat_lng.x > 85.0)
+        lat_lng.x = 90.0;
+    if (lat_lng.x < -85.0)
+        lat_lng.x = -90.0;
 
     // Convert to 3D position on Globe
     vec3 globe_pos = latLngToGlobePos(lat_lng.xy);
@@ -74,7 +74,7 @@ void main() {
     globe_pos += normal * elevation;
 
     // And apply current Globe orientation (center, zoom, pitch and bearing)
-    vec4 globe_pos_world  = u_globe_matrix * vec4(globe_pos, 1);
+    vec4 globe_pos_world = u_globe_matrix * vec4(globe_pos, 1);
 
     // Project globe position
     gl_Position = u_matrix * globe_pos_world;
