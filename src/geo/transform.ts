@@ -352,7 +352,7 @@ export class Transform {
         return result;
     }
 
-    latLngToGlobe(latLng: LngLat): vec4 {
+    latLngToGlobe(latLng: LngLat, elevation?: number): vec4 {
         // As a Tile could cover the whole Earth, EXTENT is the perimeter, so the radius is perimeter / (2.PI)
         const GLOBE_RADIUS = EXTENT / 2.0 / Math.PI;
 
@@ -361,15 +361,21 @@ export class Transform {
         const cosLat = Math.cos(latLng.lat * Math.PI / 180.0);
         const sinLat = Math.sin(latLng.lat * Math.PI / 180.0);
 
+        let radius = GLOBE_RADIUS;
+        if (elevation) {
+            // Extend radius with elevation
+            radius += elevation;
+        }
+
         // Compute spherical coordinate (y up)
-        const globeX = cosLat * sinLng * GLOBE_RADIUS;
-        const globeY = -sinLat * GLOBE_RADIUS;
-        const globeZ = cosLat * cosLng * GLOBE_RADIUS;
+        const globeX = cosLat * sinLng * radius;
+        const globeY = -sinLat * radius;
+        const globeZ = cosLat * cosLng * radius;
 
         return vec4.fromValues(globeX, globeY, globeZ, 1);
     }
 
-    createAabbFromTile(numTiles: number, z: number, x: number, y: number, wrap: number): Aabb {
+    createAabbFromTile(numTiles: number, z: number, x: number, y: number, wrap: number, terrain?: Terrain): Aabb {
         if (this.isGlobe()) {
             // Compute AABB by taking account Globe shape
 
@@ -394,16 +400,35 @@ export class Transform {
             const scalePoint = numTiles / this.worldSize;
             const meshWidth = east - west;
             const meshHeight = north - south;
+
+            let minElevation = 0;
+            let maxElevation = 0;
+            if (terrain) {
+                const tileID = new OverscaledTileID(z, wrap, z, x, y);
+                const minMax = terrain.getMinMaxElevation(tileID);
+                minElevation = minMax.minElevation ?? this.elevation;
+                maxElevation = minMax.maxElevation ?? this.elevation;
+            }
+
             // As the tile is not planar, sample the surface of the tile and use each point to extend the AABB
             // As we go closer (high z), it is not necessary to take too much points
             const nbMeshPoint = Math.max(2, Math.min(8, 10 - z));
             for (let y = 0; y < nbMeshPoint; y++) {
                 for (let x = 0; x < nbMeshPoint; x++) {
-                    const posGlobe = this.latLngToGlobe(new LngLat(west + meshWidth * x / (nbMeshPoint - 1), south + meshHeight * y / (nbMeshPoint - 1)));
-                    const p = vec4.transformMat4(posGlobe, posGlobe, globeMatrix);
-                    vec4.scale(p, p, scalePoint);
-                    cornerMin = vec4.min(cornerMin, cornerMin, p);
-                    cornerMax = vec4.max(cornerMax, cornerMax, p);
+                    const posGlobeMinElev = this.latLngToGlobe(new LngLat(west + meshWidth * x / (nbMeshPoint - 1), south + meshHeight * y / (nbMeshPoint - 1)), this.calculateCorrectedElevation(minElevation));
+                    const pMinElev = vec4.transformMat4(posGlobeMinElev, posGlobeMinElev, globeMatrix);
+                    vec4.scale(pMinElev, pMinElev, scalePoint);
+                    cornerMin = vec4.min(cornerMin, cornerMin, pMinElev);
+                    cornerMax = vec4.max(cornerMax, cornerMax, pMinElev);
+
+                    if (terrain) {
+                        // Check also max elevation
+                        const posGlobeMaxElev = this.latLngToGlobe(new LngLat(west + meshWidth * x / (nbMeshPoint - 1), south + meshHeight * y / (nbMeshPoint - 1)), this.calculateCorrectedElevation(maxElevation));
+                        const pMaxElev = vec4.transformMat4(posGlobeMaxElev, posGlobeMaxElev, globeMatrix);
+                        vec4.scale(pMaxElev, pMaxElev, scalePoint);
+                        cornerMin = vec4.min(cornerMin, cornerMin, pMaxElev);
+                        cornerMax = vec4.max(cornerMax, cornerMax, pMaxElev);
+                    }
                 }
             }
 
@@ -455,7 +480,7 @@ export class Transform {
 
         const newRootTile = (wrap: number): any => {
             return {
-                aabb: this.createAabbFromTile(numTiles, 0, 0, 0, wrap),
+                aabb: this.createAabbFromTile(numTiles, 0, 0, 0, wrap, options.terrain),
                 zoom: 0,
                 x: 0,
                 y: 0,
@@ -524,20 +549,22 @@ export class Transform {
                 const childX = (x << 1) + (i % 2);
                 const childY = (y << 1) + (i >> 1);
                 const childZ = it.zoom + 1;
-                const quadrant = this.isGlobe() ? this.createAabbFromTile(numTiles, childZ, childX, childY, it.wrap) : it.aabb.quadrant(i);
-                /*
-                let quadrant = it.aabb.quadrant(i);
-                if (options.terrain) {
-                    const tileID = new OverscaledTileID(childZ, it.wrap, childZ, childX, childY);
-                    const minMax = options.terrain.getMinMaxElevation(tileID);
-                    const minElevation = minMax.minElevation ?? this.elevation;
-                    const maxElevation = minMax.maxElevation ?? this.elevation;
-                    quadrant = new Aabb(
-                        [quadrant.min[0], quadrant.min[1], minElevation] as vec3,
-                        [quadrant.max[0], quadrant.max[1], maxElevation] as vec3
-                    );
+                let quadrant = null;
+                if (this.isGlobe()) {
+                    quadrant = this.createAabbFromTile(numTiles, childZ, childX, childY, it.wrap, options.terrain);
+                } else {
+                    quadrant = it.aabb.quadrant(i);
+                    if (options.terrain) {
+                        const tileID = new OverscaledTileID(childZ, it.wrap, childZ, childX, childY);
+                        const minMax = options.terrain.getMinMaxElevation(tileID);
+                        const minElevation = minMax.minElevation ?? this.elevation;
+                        const maxElevation = minMax.maxElevation ?? this.elevation;
+                        quadrant = new Aabb(
+                            [quadrant.min[0], quadrant.min[1], minElevation] as vec3,
+                            [quadrant.max[0], quadrant.max[1], maxElevation] as vec3
+                        );
+                    }
                 }
-                */
                 stack.push({aabb: quadrant, zoom: childZ, x: childX, y: childY, wrap: it.wrap, fullyVisible});
             }
         }
